@@ -1,0 +1,7 @@
+numpy>=1.26
+scipy>=1.11
+shapely>=2.1
+matplotlib>=3.8
+ezdxf>=1.3
+olefile>=0.47          # только для tools/extract_model.py (чтение .max)
+cadquery>=2.4          # только для STEP (python build.py --no-step работает без него)
