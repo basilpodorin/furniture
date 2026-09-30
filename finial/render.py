@@ -186,6 +186,7 @@ def shade(p, n, v):
 
 def make(P: Params, out: Path):
     objs = bodies(P)
+    alone = bodies(P, with_rod=False)      # вид с торца: штанга не видна, а лучи вдоль неё долгие
     views = {
         "render_3q.png": dict(eye_dir=(0.62, -1.0, 0.55), width_mm=150, W=1400, H=900, center=(8, 0, -2)),
         "render_side.png": dict(eye_dir=(0.0, -1.0, 0.0), width_mm=150, W=1400, H=700, center=(10, 0, 0)),
@@ -193,7 +194,7 @@ def make(P: Params, out: Path):
         "render_end.png": dict(eye_dir=(1.0, 0.0, 0.0), width_mm=62, W=900, H=900, center=(50, 0, 0)),
     }
     for name, kw in views.items():
-        trace(objs, **kw).save(out / name)
+        trace(alone if name == "render_end.png" else objs, **kw).save(out / name)
         print(name)
 
 

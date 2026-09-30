@@ -92,13 +92,14 @@ def nest_solid(P: Params):
     return out
 
 
-def export_solid(solid, stem: Path, stl_tol=0.01):
+def export_solid(solid, stem: Path, stl_tol=0.01, stl=True):
     import build123d as bd
 
     if not solid.is_valid:
         raise RuntimeError(f"{stem.name}: невалидное тело")
     bd.export_step(solid, str(stem.with_suffix(".step")))
-    bd.export_stl(solid, str(stem.with_suffix(".stl")), tolerance=stl_tol, angular_tolerance=0.1)
+    if stl:
+        bd.export_stl(solid, str(stem.with_suffix(".stl")), tolerance=stl_tol, angular_tolerance=0.1)
     return solid.volume
 
 
@@ -351,7 +352,7 @@ def main():
     print("DXF готовы")
 
     # --- STEP (+ STL оснастки) ---
-    v = export_solid(body_solid(P), OUT / "finial_body_smooth")
+    v = export_solid(body_solid(P), OUT / "finial_body_smooth", stl=False)
     print(f"finial_body_smooth.step: {v / 1000:.1f} см³ (тело после установок 1–2)")
     if P.reeds:
         export_solid(index_half_solid(P), OUT / "fixture_setup4_index_half")
