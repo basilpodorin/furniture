@@ -135,7 +135,7 @@ def inner_rect(poly_hole, step=10):
     return best[1] if best else None
 
 
-def nest(parts, sheet=(1525, 1525), margin=12, gap=14):
+def nest(parts, sheet=(1525, 1525), margin=10, gap=10):
     """Раскладка деталей по листам. Возвращает [(sheet_idx, part, x, y, rot)]."""
     items = []
     for p in parts:

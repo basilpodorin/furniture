@@ -126,7 +126,7 @@ td .sub{color:var(--muted); font-size:12px}
 (function(){
 const D = JSON.parse(document.getElementById('data').textContent);
 const COLORS = {
-  surface:'#7f939a', plate:'#dcbf8c', rib:'#cda56a', part:'#b98d55',
+  surface:'#7f939a', plate:'#dcbf8c', rib:'#cda56a', part:'#b98d55', side:'#c08a4e',
   seat:'#eec35a', back:'#e59f8b', arm:'#f1da8e', top:'#9db6c8',
   outer:'#c9ccd1', belt:'#3e4a35', steel:'#26292d'
 };
@@ -167,7 +167,7 @@ const surf = new THREE.Mesh(sg, surfMat); group('surface').add(surf);
 // каркас
 const pickables = [];
 D.parts.forEach(p=>{
-  const key = p.kind==='plate' ? 'plate' : (p.code.startsWith('ПГ') ? 'part' : 'rib');
+  const key = p.kind==='plate' ? 'plate' : (p.code.startsWith('ПГ') ? 'part' : (p.code==='Б' ? 'side' : 'rib'));
   const g = extrude(p.outer, p.holes, p.t);
   const m = mat(COLORS[key], {roughness:.7});
   p.inst.forEach((ins, k)=>{

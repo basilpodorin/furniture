@@ -20,8 +20,6 @@ def placements(part):
         return out
     ox, oy = part.origin
     dx, dy = part.direction
-    if part.code == "ПГ1":
-        return [((ox, oy), (dx, dy), False), ((-ox, oy), (dx, dy), False)]
     if part.qty == 2:
         return [((ox, oy), (dx, dy), False), ((-ox, oy), (-dx, dy), True)]
     return [((ox, oy), (dx, dy), False)]
@@ -129,23 +127,29 @@ def viewer_data(frame, soft, cage_level_mesh):
             z0 = zt + (0 if f.code == "В1" else 50)
             foam.append(dict(code=f.code, name=f.name, kind="xy", z0=z0, t=50,
                              outer=np.round(np.array(f.pattern.exterior.coords), 1).tolist()))
-    # подлокотники (внутр. поролон) и спинка — упрощённые плиты
-    # поролон подлокотника изнутри: профиль по обшивке ОП (+ заход 40 на торец), в пределах обивки
+    # подлокотники: Пл1 — на внутренней пласти боковины, Н3 — на наружной (упрощённо)
+    from shapely import affinity as _aff
     from shapely.geometry import Polygon as _Poly, box as _box
     from .foam import WRAP
-    from .frame import S as _S
+    from .frame import S as _S, X_IN, X_OUT
     zt, z4 = P.Z_P3 + P.PLY, P.Z_P4 + P.PLY
-    xm = P.ARM_SKIN_X - P.SKIN_T - 20
-    sec = _S.section(0, xm).buffer(-WRAP)
-    front = [(y - 40, z) for y, z in frame.skin_front]
+    side_yz = _aff.affine_transform(_Poly(frame.side.shape.exterior),
+                                    [-1, 0, 0, 1, frame.side_y_ref, 0])
+    t_arm = soft.arm_t
+    sec = _S.section(0, X_IN - t_arm / 2).buffer(-WRAP)
     y_back = P.BACK_BELT_Y0 - P.CAVITY_R + 20
-    zone = _Poly(front + [(y_back, z4), (y_back, zt)]).buffer(0)
-    arm = sec.intersection(zone).intersection(_box(-600, zt, y_back, z4))
+    zone = side_yz.buffer(40).intersection(_box(-600, zt, y_back, z4))
+    arm = sec.intersection(zone)
     arm = max(getattr(arm, "geoms", [arm]), key=lambda g: g.area)
+    filler = soft.side_filler["pattern"]
     for sx in (-1, 1):
-        a, b = sx * (P.ARM_SKIN_X - P.SKIN_T - 40), sx * (P.ARM_SKIN_X - P.SKIN_T)
-        foam.append(dict(code="Пл1", name="Подлокотник внутр. (Пл1)", kind="yz", x0=min(a, b),
-                         x1=max(a, b), outer=np.round(np.array(arm.exterior.coords), 1).tolist()))
+        a, b = sx * (X_IN - t_arm), sx * X_IN
+        foam.append(dict(code="Пл1", name=f"Подлокотник внутр. (Пл1, {t_arm:.0f} мм)", kind="yz",
+                         x0=min(a, b), x1=max(a, b),
+                         outer=np.round(np.array(arm.exterior.coords), 1).tolist()))
+        a, b = sx * X_OUT, sx * (X_OUT + 30)
+        foam.append(dict(code="Н3", name="Боковина снаружи (Н3)", kind="yz", x0=min(a, b),
+                         x1=max(a, b), outer=np.round(np.array(filler.exterior.coords), 1).tolist()))
     bp = soft.back_profile
     wback = P.ARM_SKIN_X - P.CAVITY_R
     foam.append(outer_foam_mesh(V, Q))

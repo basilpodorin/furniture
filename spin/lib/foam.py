@@ -9,7 +9,7 @@ import numpy as np
 from shapely.geometry import LineString, Polygon, box
 
 import params as P
-from .frame import S, back_belt_y, largest, plan_env
+from .frame import S, X_IN, X_OUT, back_belt_y, largest, plan_env
 
 WRAP = 10          # синтепон 200 г/м² + ткань в сжатом виде, мм
 
@@ -68,6 +68,7 @@ class Soft:
         self.belts = []
         self.sheet_goods = []
         self.info = {}
+        self.arm_t = self._arm_thickness()
         self._seat()
         self._back()
         self._arms()
@@ -101,7 +102,7 @@ class Soft:
         prof = prof.difference(box(y_join, z_under_back, y1 + 1, 900))
         prof = largest(prof.buffer(3).buffer(-3))
         self.seat_profile = prof
-        half_w = P.ARM_SKIN_X - P.SKIN_T - 40     # между поролонами подлокотников (на обшивке ОП)
+        half_w = X_IN - self.arm_t                # между поролонами подлокотников (на боковинах)
         self.seat_half_w = half_w
         # С1 — основа 80 мм, параллельно опоре
         base = largest(prof.intersection(self._band_above(deck, 80)))
@@ -197,26 +198,45 @@ class Soft:
             volume_m3=prof.area * width / 1e9))
 
     # ---------------------------------------------------------- подлокотники внутри
+    @staticmethod
+    def _arm_rows():
+        """(z, x_внутр, x_наруж) поверхности подлокотника/бока в сечении y = 0."""
+        fs = S.section(1, 0.0)
+        out = []
+        for z in np.arange(100, P.Z_P4 + P.PLY + 1, 25.0):
+            xs = [x for x in horizontal_cuts(fs, z) if x > 150]
+            if xs:
+                inner = xs[0] if len(xs) > 1 and xs[0] < X_IN - 20 else None
+                out.append((float(z), inner, xs[-1]))
+        return out
+
+    def _arm_thickness(self):
+        th = [X_IN - xi - WRAP for z, xi, xo in self._arm_rows() if xi and z >= 480]
+        return float(np.round(np.mean(th) / 10) * 10)
+
     def _arms(self):
+        F = self.F
         z0, z1 = P.Z_P3 + P.PLY, P.Z_P4 + P.PLY
-        y_front = self.F.arm_front_y - 40
+        y_front = F.arm_front_y - 40
         y_back = back_belt_y(450) - P.CAVITY_R + 20
         L, H = y_back - y_front, z1 - z0
-        fs = S.section(1, 0.0)
-        th = []
-        for z in (450, 500, 550, 600, 628):
-            xs = [x for x in horizontal_cuts(fs, z) if 150 < x < P.ARM_SKIN_X]
-            if xs:
-                th.append(P.ARM_SKIN_X - 4 - xs[0] - WRAP)
-        self.info["arm"] = dict(t=[round(t) for t in th], length=L, height=H)
+        th = [round(X_IN - xi - WRAP) for z, xi, xo in self._arm_rows() if xi and z >= 480]
+        self.info["arm"] = dict(t=th, length=L, height=H, sheet=self.arm_t)
         self.pieces.append(Foam(
-            "Пл1", "Подлокотник — внутренняя сторона", "HR 3530", 40, box(0, 0, L, H), qty=2,
-            zone="подлокотники", note="на обшивку ОП; спереди заходит на торец ТП, "
-                                      "верхнюю кромку снять на ус под валик"))
-        # торец подлокотника (перед стойкой), от П3 до П4
+            "Пл1", "Подлокотник — внутренняя сторона", "HR 3530", self.arm_t, box(0, 0, L, H),
+            qty=2, zone="подлокотники",
+            note="на внутреннюю пласть боковины (окна закрыты картоном); спереди — под торец "
+                 "Пл2, сзади — стык со спинкой; верхнюю кромку снять на ус под валик"))
+        # торец боковины — на всю высоту, закрывает кромку лекала и торцы поролонов
+        zs = [z for z, f in [(z, f) for f, z in F.side_front]]
+        h_t = max(zs) - min(zs) + 60
+        w_t = (X_OUT + 80) - (X_IN - self.arm_t)
+        self.info["torec"] = dict(width=w_t, height=h_t)
         self.pieces.append(Foam(
-            "Пл2", "Торец подлокотника", "ST 2536", 40, box(0, 0, 120, H), qty=2,
-            zone="подлокотники", note="на переднюю кромку лекала ТП и концы полос; скруглить"))
+            "Пл2", "Торец боковины (от низа до валика)", "ST 2536", 40, box(0, 0, w_t, h_t),
+            qty=2, zone="подлокотники",
+            note="на переднюю кромку боковины и торцы Пл1, Н3, Н1; снизу — завёртка под дно 30 мм; "
+                 "рёбра скруглить"))
 
     # ---------------------------------------------------------- верхний валик
     def _top_roll(self):
@@ -249,15 +269,35 @@ class Soft:
         front = LineString(low.exterior.coords).intersection(box(-2000, -2000, 2000, tip))
         L_front = front.length if front.geom_type == "LineString" else sum(g.length for g in front.geoms)
         # высота по профилю наружной кромки центрального ребра спинки + завёртка под дно
-        back_rib = next(r for r in F.lower_ribs if abs(r.origin[0]) < 1)
-        h_low = self._outer_edge_len(back_rib.shape) + 30
+        back_rib = next(r for r in F.wall_ribs if abs(r.origin[0]) < 1)
+        edge = back_rib.shape.intersection(box(-500, 0, 2000, P.Z_P3))
+        h_low = self._outer_edge_len(largest(edge)) + 30
         h_up = P.Z_P4 + P.PLY - (P.Z_P3 + P.PLY)
         self.info["outer"] = dict(L_u=L_u, L_low=L_low, L_front=L_front, h_low=h_low, h_up=h_up)
         self.pieces.append(Foam(
             "Н1", "Наружная стенка: спинка + бок (половина)", "ST 2536", 40,
             box(0, 0, L_u / 2 + 20, h_low + h_up), qty=2, zone="наружные стенки",
-            note="от торца подлокотника до шва по центру спинки; снизу заворачивается под дно "
-                 "на 30 мм; одна цельная полоса по высоте"))
+            note="от торца боковины (по Н3) до шва по центру спинки (по обшивке рёбер); снизу "
+                 "заворачивается под дно на 30 мм; одна цельная полоса по высоте"))
+        # Н3 — выравнивающий слой на наружной пласти боковины (под Н1): толщина по модели
+        rows = [(z, xo - X_OUT - WRAP - 40) for z, xi, xo in self._arm_rows()]
+        z_lo = min(z for f, z in F.side_front)
+        prof = Polygon([(0.0, z_lo)] + [(float(np.clip(t, 0, 40)), z) for z, t in rows if z >= z_lo]
+                       + [(0.0, rows[-1][0])]).buffer(0)
+        side = F.side
+        y_ref = F.side_y_ref
+        from shapely import affinity
+        from shapely.geometry import Polygon as _P
+        out_line = _P(side.shape.exterior)            # контур боковины без окон
+        pat = affinity.affine_transform(out_line, [-1, 0, 0, 1, y_ref, 0])   # (y, z)
+        self.side_filler = dict(profile=prof, pattern=pat)
+        self.info["outer"]["t_side"] = [round(float(t)) for z, t in rows]
+        self.pieces.append(Foam(
+            "Н3", "Боковина снаружи — выравнивающий слой", "ST 2536", 40, pat, qty=2,
+            zone="наружные стенки", profile=prof,
+            volume_m3=pat.area * 30 / 1e9,
+            note="на наружную пласть боковины под Н1; толщина по шаблону: 40 мм посередине, "
+                 "к низу и к валику сходит на нет (срезать по боковому шаблону)"))
         self.pieces.append(Foam(
             "Н2", "Наружная стенка: фасад под сиденьем", "ST 2536", 40,
             box(0, 0, L_front + 40, h_low), zone="наружные стенки",
@@ -303,13 +343,28 @@ class Soft:
     # ---------------------------------------------------------- листовые материалы
     def _sheets(self):
         area = self.surface_area()
-        info = self.info
-        strips_low = 3 * info["outer"]["L_low"]
-        strips_up = 4 * info["outer"]["L_u"]
+        F = self.F
+        # длина обшивки рёбер: по наружным кромкам рёбер между боковинами (спинка и фасад)
+        c = F.station_curve
+        pts = [c.interpolate(t) for t in np.linspace(0, c.length, 400)]
+        ds = c.length / 399
+        back = 2 * sum(ds for p in pts if p.y > 0 and p.x < X_IN)
+        front = 2 * sum(ds for p in pts if p.y < 0 and p.x < X_IN)
+        h_up = P.Z_P4 + P.PLY - P.Z_P3
+        side = F.side.shape
+        win = sum(w.area for w in F.side_windows) / 1e6
+        self.info["skin"] = dict(back=back, front=front, h_up=h_up)
         self.sheet_goods = [
-            dict(name="Полосы обшивки стенок, ширина 60", material="Гибкая фанера 4 мм",
-                 size=f"суммарно {(strips_low + strips_up) / 1000:.1f} м.п.",
-                 qty=1, note="низ — 3 ряда (z≈100/180/260), стенка — 4 ряда (z≈370/450/530/600)"),
+            dict(name="Обшивка спинки снаружи выше П3 — полоса по развёртке "
+                      f"≈{back + 60:.0f}×{h_up + 20:.0f}", material="Фанера 3 мм (гибкая)",
+                 size=f"≈{(back + 60) * (h_up + 20) / 1e6:.2f} м²", qty=1,
+                 note="гнётся по рёбрам РС, заходит на задние кромки боковин; клей + скобы 10 мм"),
+            dict(name="Полосы обшивки нижнего короба, ширина 60", material="Фанера 3 мм (гибкая)",
+                 size=f"суммарно {3 * (back + front + 120) / 1000:.1f} м.п.", qty=1,
+                 note="спинка и фасад, 3 ряда (z≈100/180/260): двойная кривизна у скругления низа"),
+            dict(name="Картон мебельный 2 мм — закрыть окна боковин со стороны сиденья",
+                 material="Картон 2 мм", size=f"≈{2 * win * 1.3:.2f} м²", qty=1,
+                 note="под поролон Пл1 (как «внутри закрыть картоном» в ЧПУ-каркасах)"),
             dict(name="Спанбонд 80 г/м² по ремням сиденья и спинки", material="Спанбонд 80",
                  size="≈0,6 м²", qty=1),
             dict(name="Пылезащитная ткань на дно (вырез 200×200 под механизм)",
