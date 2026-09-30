@@ -69,6 +69,9 @@ def main():
             "old_price_rub": regular if regular and price and regular != price else None,
             "price_note": "Розничная цена за 1 п.м. (сайт)",
             "stock": clean(p.get("stock_availability", {}).get("text")),
+            # сам Артекс в файле остатков отсылает к сайту: «узнать наличие ткани можно на нашем сайте»
+            "in_stock": clean(p.get("stock_availability", {}).get("text")) == "В наличии",
+            "status": "Акция" if p.get("on_sale") else None,
             "url": p["permalink"],
             "photo_url": p["images"][0]["src"] if p.get("images") else None,
             "extra_photos": [i["src"] for i in p.get("images", [])[1:]],
@@ -82,7 +85,10 @@ def main():
         ) if r["photo_url"] else None
         return r
 
-    rows = pmap(photo, rows, workers=6)
+    for r in rows:
+        r["photo_file"] = None
+    # фото качаем только для цветов в наличии
+    pmap(photo, [r for r in rows if r["in_stock"] and r["collection"]], workers=6)
     write_raw("artex", rows)
     print(f"{SUPPLIER}: итого {len(rows)} позиций")
 

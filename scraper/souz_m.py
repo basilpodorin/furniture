@@ -11,6 +11,7 @@ BASE = "https://souz-m.ru"
 SUPPLIER = "Союз-М"
 VELOUR_TYPE_ID = 14  # filter_TextileType_ID «Велюр»
 LISTING = BASE + "/products/?filter_TextileType_ID%5B0%5D={tid}&recNum=12&curPos={pos}"
+LEFTOVERS = BASE + "/leftovers/"  # «Остатки тканей», Москва, в отрез
 
 
 def collections():
@@ -117,6 +118,35 @@ def photo(r):
     return r
 
 
+def leftovers():
+    """{id товара: {наличие, дата поступления, статусы}} со страницы остатков."""
+    s = BeautifulSoup(get_text(LEFTOVERS), "lxml")
+    out = {}
+    for tr in s.select("tr"):
+        name = tr.select_one(".r_item_name[data-id]")
+        tds = tr.find_all("td", recursive=False)
+        if not name or len(tds) < 4:
+            continue
+        out[name["data-id"]] = {
+            "available": clean(tds[2].get_text()) == "Да",
+            "arrival": clean(tds[3].get_text()),
+            "status": ", ".join(sp["title"] for sp in tr.select(".wrap_r_item_dots span[title]")) or None,
+        }
+    return out
+
+
+def apply_leftovers(rows):
+    """Наличие и статусы (Новинка / Распродажа / Допродажа) по id товара из пути фото."""
+    left = leftovers()
+    for r in rows:
+        m = re.search(r"/Item/(\d+)/", r.get("photo_url") or "")
+        info = left.get(m.group(1)) if m else None
+        r["in_stock"] = info["available"] if info else None
+        r["status"] = info["status"] if info else None
+        r["arrival"] = info["arrival"] if info else None
+    return rows
+
+
 def main():
     cols = collections()
     print(f"{SUPPLIER}: коллекций велюра {len(cols)}")
@@ -128,7 +158,9 @@ def main():
         print(f"  {name}: цветов {len(items)}, велюр {len(velour)}")
         rows.extend(velour)
 
-    rows = pmap(photo, rows, workers=6)
+    apply_leftovers(rows)
+    # фото качаем только для цветов в наличии
+    pmap(photo, [r for r in rows if r["in_stock"]], workers=6)
     write_raw("souz_m", rows)
     print(f"{SUPPLIER}: итого {len(rows)} позиций")
 

@@ -11,6 +11,18 @@ from common import clean, get_text, num, pmap, save_photo, slug, write_raw
 BASE = "https://viptextil.ru"
 SUPPLIER = "Вип Текстиль"
 CATEGORY = BASE + "/catalog/mebelnie-tkani/velyur/"
+RESTS = BASE + "/catalog/special/rests-display/"  # «Актуальные остатки»
+
+
+def rests():
+    """{название цвета в нижнем регистре: (статус наличия, [разделы])}."""
+    s = BeautifulSoup(get_text(RESTS), "lxml")
+    out = {}
+    for li in s.select('li.rests-item[data-is-product="1"]'):
+        st = li.select_one(".rests-status")
+        cats = [clean(c.select_one(".rests-item-name").contents[0]) for c in li.find_parents("li", class_="is-category")]
+        out[clean(li["data-name"]).lower()] = (clean(st.get_text()) if st else None, cats)
+    return out
 
 
 def collection_urls():
@@ -28,7 +40,7 @@ def img_url(path):
     return urljoin(BASE + "/images/editor/catalog/", path.replace("/images/editor/catalog/", ""))
 
 
-def parse_collection(url):
+def parse_collection(url, rests_map):
     h = get_text(url)
     s = BeautifulSoup(h, "lxml")
     specs = {}
@@ -53,6 +65,7 @@ def parse_collection(url):
         # первая картинка конфигурации — фото именно этого цвета
         photo = img_url(imgs[0]["src"]) if imgs else None
         price, old = num(c.get("priceWithDiscount")), num(c.get("originalPrice"))
+        rest_status, rest_cats = rests_map.get((clean(c.get("name")) or "").lower(), (None, []))
         rows.append({
             "supplier": SUPPLIER,
             "collection": collection,
@@ -71,7 +84,9 @@ def parse_collection(url):
             "price_rub": price,
             "old_price_rub": old if old and price and old != price else None,
             "price_note": "Цена за 1 п.м. (сайт)",
-            "stock": stock_txt,
+            "stock": rest_status or stock_txt,
+            "in_stock": rest_status == "есть в наличии",
+            "status": "Распродажа" if "РАСПРОДАЖА" in rest_cats else None,
             "url": links.get(c.get("id"), url),
             "photo_url": photo,
             "source": "viptextil.ru (официальный сайт)",
@@ -84,7 +99,8 @@ def parse_collection(url):
 def main():
     urls = collection_urls()
     print(f"{SUPPLIER}: коллекций велюра {len(urls)}")
-    rows = [r for u in urls for r in parse_collection(u)]
+    rests_map = rests()
+    rows = [r for u in urls for r in parse_collection(u, rests_map)]
 
     def photo(r):
         r["photo_file"] = save_photo(
@@ -92,7 +108,10 @@ def main():
         ) if r["photo_url"] else None
         return r
 
-    rows = pmap(photo, rows, workers=3)
+    for r in rows:
+        r["photo_file"] = None
+    # фото качаем только для цветов в наличии
+    pmap(photo, [r for r in rows if r["in_stock"]], workers=3)
     write_raw("vip_textil", rows)
     print(f"{SUPPLIER}: итого {len(rows)} позиций")
 
