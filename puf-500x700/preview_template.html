@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>@TITLE@ — предпросмотр</title>
+<style>
+:root {
+  --bg: #f5f3ef; --panel: #ffffff; --ink: #1f1d1a; --muted: #6f6a62; --line: #e2ddd4;
+  --accent: #b8623f; --accent-ink: #ffffff; --ok: #2e8b57; --bad: #c0392b; --scene: #f1eee8;
+  --chip: #f0ebe3; --shadow: 0 6px 24px rgba(40, 30, 20, .10);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1a18; --panel: #25231f; --ink: #ece8e1; --muted: #a39d93; --line: #3a3732;
+    --accent: #d98361; --accent-ink: #1b1a18; --ok: #5cc28a; --bad: #ef6b5b; --scene: #22201d;
+    --chip: #2f2c27; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line);
+  background: var(--panel); flex-wrap: wrap; }
+header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: .1px; }
+header .code { color: var(--muted); font-size: 12px; }
+nav { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; max-width: 100%; }
+nav button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 8px;
+  font: inherit; cursor: pointer; white-space: nowrap; }
+nav button.on { background: var(--accent); color: var(--accent-ink); }
+nav button:not(.on):hover { background: var(--chip); color: var(--ink); }
+main { flex: 1; position: relative; min-height: 0; }
+section { position: absolute; inset: 0; display: none; }
+section.on { display: block; }
+.stage { position: absolute; inset: 0; }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.panel { position: absolute; top: 12px; right: 12px; width: 290px; max-height: calc(100% - 24px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 12px 14px; }
+.panel h3 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+  font-weight: 600; }
+.panel h3:first-child { margin-top: 0; }
+.row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.row label { flex: 1; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button, .btn { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px;
+  padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+.chips button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.layer { display: flex; align-items: center; gap: 8px; margin: 3px 0; cursor: pointer; user-select: none; }
+.layer i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,.2); }
+.layer input { accent-color: var(--accent); }
+.hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 9px; font-size: 12.5px; box-shadow: var(--shadow); display: none; max-width: 280px;
+  z-index: 5; }
+.toggle-panel { display: none; position: absolute; right: 12px; bottom: 12px; z-index: 6; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+.kv b { font-weight: 500; color: var(--muted); }
+.legend { display: grid; grid-template-columns: 14px 1fr; gap: 3px 8px; font-size: 12.5px; align-items: center; }
+.legend i { height: 3px; border-radius: 2px; display: block; }
+.warn { background: color-mix(in srgb, var(--bad) 12%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+  border-radius: 8px; padding: 7px 9px; font-size: 12.5px; margin-top: 10px; }
+.scroll { position: absolute; inset: 0; overflow: auto; padding: 16px; }
+.sheets { max-width: 1200px; margin: 0 auto; display: grid; gap: 18px; }
+.sheets figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sheets img { width: 100%; display: block; background: #fff; cursor: zoom-in; }
+.sheets figcaption { padding: 8px 12px; font-size: 13px; color: var(--muted); }
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; overflow: auto; z-index: 20; cursor: zoom-out; }
+.lightbox img { display: block; width: 2400px; max-width: none; margin: 0 auto; background: #fff; }
+.spec { max-width: 1100px; margin: 0 auto; }
+.spec h2 { font-size: 15px; margin: 22px 0 8px; }
+.spec h2:first-child { margin-top: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+td.n { text-align: center; }
+td:first-child { white-space: nowrap; }
+.check { display: flex; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.check:last-child { border-bottom: 0; }
+.check span:first-child { font-weight: 700; }
+.ok { color: var(--ok); } .bad { color: var(--bad); }
+@media (max-width: 760px) {
+  header { padding: 8px 12px; gap: 6px; }
+  header h1 { font-size: 14.5px; }
+  nav { margin-left: 0; width: 100%; }
+  .panel { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-height: 55%; border-radius: 14px 14px 0 0; }
+  .panel.hidden { display: none; }
+  .toggle-panel { display: block; }
+  .scroll { padding: 12px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>@TITLE@</h1>
+    <div class="code" id="code"></div>
+  </div>
+  <nav id="tabs">
+    <button data-tab="3d" class="on">3D</button>
+    <button data-tab="nest">Раскрой и УП</button>
+    <button data-tab="sheets">Листы А3</button>
+    <button data-tab="spec">Спецификация</button>
+  </nav>
+</header>
+<main>
+  <section id="tab-3d" class="on">
+    <div class="stage" id="view3d"></div>
+    <div class="tip" id="tip3d"></div>
+    <button class="btn toggle-panel" data-panel="panel3d">Настройки</button>
+    <aside class="panel" id="panel3d">
+      <h3>Вид</h3>
+      <div class="chips" id="presets">
+        <button data-preset="product" class="on">Изделие</button>
+        <button data-preset="inside">Слои в разрезе</button>
+        <button data-preset="frame">Каркас</button>
+        <button data-preset="exploded">Разнесённый</button>
+      </div>
+      <h3>Камера</h3>
+      <div class="chips" id="views">
+        <button data-view="iso">Изо</button><button data-view="front">Спереди</button>
+        <button data-view="side">Сбоку</button><button data-view="top">Сверху</button>
+      </div>
+      <h3>Разнос деталей</h3>
+      <input type="range" id="explode" min="0" max="1" step="0.01" value="0">
+      <h3>Разрез</h3>
+      <div class="chips" id="cutaxis">
+        <button data-axis="none" class="on">Нет</button><button data-axis="x">Поперёк</button>
+        <button data-axis="y">Вдоль</button>
+      </div>
+      <input type="range" id="cutpos" min="-360" max="360" step="1" value="-200" disabled>
+      <h3>Слои</h3>
+      <div id="layers"></div>
+      <label class="layer"><input type="checkbox" id="ghost"> чехол полупрозрачный</label>
+      <div class="hint">Вращение — левая кнопка / палец, сдвиг — правая / два пальца, масштаб — колесо / щипок.
+        Наведите на деталь — появится её название.</div>
+    </aside>
+  </section>
+
+  <section id="tab-nest">
+    <div class="stage" id="nestwrap"><canvas id="nest"></canvas></div>
+    <div class="tip" id="tipnest"></div>
+    <button class="btn toggle-panel" data-panel="panelnest">УП</button>
+    <aside class="panel" id="panelnest">
+      <h3>Проигрывание УП</h3>
+      <div class="row">
+        <button class="btn" id="play">▶ Пуск</button>
+        <button class="btn" id="restart">⟲</button>
+        <select id="speed" class="btn">
+          <option value="20">×20</option><option value="100" selected>×100</option>
+          <option value="400">×400</option><option value="2000">×2000</option>
+        </select>
+      </div>
+      <input type="range" id="progress" min="0" max="1000" step="1" value="1000">
+      <div class="kv" id="nestinfo"></div>
+      <h3>Показать</h3>
+      <label class="layer"><input type="checkbox" id="showpaths" checked> траектории фрезы</label>
+      <label class="layer"><input type="checkbox" id="showrapid"> холостые переходы</label>
+      <label class="layer"><input type="checkbox" id="showlabels" checked> подписи деталей</label>
+      <h3>Цвета</h3>
+      <div class="legend" id="legend"></div>
+      <div class="warn">УП сделана типовым постпроцессором (Mach3 / NcStudio), не цеховым. Перед резкой —
+        проверка в симуляторе станка.</div>
+      <div class="hint">Колесо / щипок — масштаб, перетаскивание — сдвиг, двойной щелчок — весь лист.</div>
+    </aside>
+  </section>
+
+  <section id="tab-sheets"><div class="scroll"><div class="sheets" id="sheets"></div></div></section>
+  <section id="tab-spec"><div class="scroll"><div class="spec" id="spec"></div></div></section>
+</main>
+<div class="lightbox" id="lightbox"><img alt=""></div>
+
+<script type="application/json" id="data">@DATA@</script>
+<script>/*@THREE@*/</script>
+<script>/*@ORBIT@*/</script>
+<script>
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+document.getElementById("code").textContent = D.code + " · предпросмотр пакета для цеха";
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ------------------------------------------------------------------ вкладки
+const inited = {};
+function showTab(name) {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("on", s.id === "tab-" + name));
+  if (!inited[name]) { inited[name] = true; ({ "3d": init3d, nest: initNest, sheets: initSheets, spec: initSpec })[name](); }
+  window.dispatchEvent(new Event("resize"));
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll(".toggle-panel").forEach(b => b.onclick = () =>
+  document.getElementById(b.dataset.panel).classList.toggle("hidden"));
+if (matchMedia("(max-width: 760px)").matches) document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+
+// ------------------------------------------------------------------ 3D
+const LAYERS = [
+  ["cover", "Чехол (ткань + холкон)", "#c8735e"], ["foam", "ППУ 30 мм", "#f1e19a"],
+  ["card", "Картон 3 мм", "#9d9d9d"], ["frame", "Каркас ф15", "#e9cc9f"], ["hw", "Крепёж и опоры", "#6d7177"],
+];
+const S3 = { objs: [], pick: [], explode: 0, clip: null, axis: "none", ghost: false, vis: {} };
+LAYERS.forEach(l => S3.vis[l[0]] = true);
+
+function init3d() {
+  const el = document.getElementById("view3d");
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.localClippingEnabled = true;
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 5, 30000);
+  camera.up.set(0, 0, 1);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  Object.assign(S3, { renderer, scene, camera, controls });
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7d6b, 0.75));
+  const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(-900, -1400, 1800); scene.add(key);
+  const rim = new THREE.DirectionalLight(0xffffff, 0.35); rim.position.set(1500, 900, 700); scene.add(rim);
+  const grid = new THREE.GridHelper(1600, 16, 0x9c9486, 0xc9c2b6);
+  grid.rotation.x = Math.PI / 2; grid.material.transparent = true; grid.material.opacity = 0.45;
+  scene.add(grid);
+
+  S3.clip = new THREE.Plane(new THREE.Vector3(1, 0, 0), 200);
+  const clips = [];
+  S3.clips = clips;
+
+  const shapeOf = (outer, holes) => {
+    const s = new THREE.Shape(outer.map(p => new THREE.Vector2(p[0], p[1])));
+    (holes || []).forEach(h => s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p[0], p[1])))));
+    return s;
+  };
+  for (const m of D.meshes) {
+    let geo;
+    if (m.kind === "extrude") {
+      geo = new THREE.ExtrudeGeometry(shapeOf(m.outer, m.holes), { depth: m.depth, bevelEnabled: false, curveSegments: 1 });
+      const a = m.m, mat = new THREE.Matrix4();
+      mat.set(a[0], a[3], a[6], a[9], a[1], a[4], a[7], a[10], a[2], a[5], a[8], a[11], 0, 0, 0, 1);
+      geo.applyMatrix4(mat);
+    } else if (m.kind === "sweep") {
+      geo = sweepGeo(m.path, m.prof);
+    } else if (m.kind === "pillow") {
+      geo = new THREE.ExtrudeGeometry(shapeOf(m.outer), { depth: m.h - 2 * m.bevel, bevelEnabled: true,
+        bevelThickness: m.bevel, bevelSize: m.bevel, bevelSegments: 7, curveSegments: 1 });
+      geo.translate(0, 0, m.z0 + m.bevel);
+    } else {
+      geo = new THREE.CylinderGeometry(m.r, m.r, m.h, m.seg || 28);
+      geo.rotateX(Math.PI / 2);
+      geo.translate(m.x, m.y, m.z0 + m.h / 2);
+    }
+    const mat = new THREE.MeshStandardMaterial({ color: m.color, roughness: m.grp === "hw" ? 0.45 : 0.85,
+      metalness: m.grp === "hw" ? 0.35 : 0, side: THREE.DoubleSide, clippingPlanes: clips,
+      polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+    const mesh = new THREE.Mesh(geo, mat);
+    const g = new THREE.Group();
+    g.add(mesh);
+    if (m.grp === "frame" || m.grp === "card" || m.grp === "foam") {
+      const lm = new THREE.LineBasicMaterial({ color: m.grp === "frame" ? 0x6b4f2e : 0x8a7f5a, transparent: true,
+        opacity: m.grp === "frame" ? 0.55 : 0.3, clippingPlanes: clips });
+      g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28), lm));
+    }
+    g.userData = { level: m.level, grp: m.grp, label: m.label };
+    mesh.userData = g.userData;
+    scene.add(g);
+    S3.objs.push(g);
+    S3.pick.push(mesh);
+  }
+
+  // панель: слои
+  const lay = document.getElementById("layers");
+  for (const [id, name, color] of LAYERS) {
+    const l = document.createElement("label");
+    l.className = "layer";
+    l.innerHTML = `<input type="checkbox" data-layer="${id}" checked><i style="background:${color}"></i>${name}`;
+    lay.appendChild(l);
+  }
+  lay.addEventListener("change", e => { S3.vis[e.target.dataset.layer] = e.target.checked; markPreset(); apply3d(); });
+  document.getElementById("ghost").onchange = e => { S3.ghost = e.target.checked; apply3d(); };
+  document.getElementById("explode").oninput = e => { S3.explode = +e.target.value; markPreset(); apply3d(); };
+  document.querySelectorAll("#cutaxis button").forEach(b => b.onclick = () => setCut(b.dataset.axis));
+  document.getElementById("cutpos").oninput = e => { S3.clip.constant = -e.target.value; };
+  document.querySelectorAll("#views button").forEach(b => b.onclick = () => setView(b.dataset.view));
+  document.querySelectorAll("#presets button").forEach(b => b.onclick = () => preset(b.dataset.preset));
+
+  // подсказка по детали
+  const tip = document.getElementById("tip3d"), ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+  let down = null;
+  const pickAt = (ev) => {
+    const r = renderer.domElement.getBoundingClientRect();
+    v2.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(v2, camera);
+    const hits = ray.intersectObjects(S3.pick.filter(o => o.parent.visible), false)
+      .filter(h => !S3.clips.length || S3.clip.distanceToPoint(h.point) >= 0);
+    if (!hits.length) { tip.style.display = "none"; return; }
+    tip.textContent = hits[0].object.userData.label;
+    tip.style.display = "block";
+    const x = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 8);
+    tip.style.left = x + "px"; tip.style.top = (ev.clientY - r.top + 14) + "px";
+  };
+  renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; tip.style.display = "none"; });
+  renderer.domElement.addEventListener("pointermove", e => { if (e.pointerType === "mouse" && !e.buttons) pickAt(e); });
+  renderer.domElement.addEventListener("pointerup", e => {
+    if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 5 && e.pointerType !== "mouse") {
+      pickAt(e); clearTimeout(S3.tipT); S3.tipT = setTimeout(() => tip.style.display = "none", 2500);
+    }
+    down = null;
+  });
+  renderer.domElement.addEventListener("pointerleave", () => tip.style.display = "none");
+
+  const resize = () => {
+    const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  };
+  window.addEventListener("resize", resize);
+  const theme = () => { scene.background = new THREE.Color(css("--scene")); };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme);
+  theme(); resize(); apply3d(); setView("iso");
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+}
+
+function sweepGeo(path, prof) {
+  // профиль (d — наружу от контура, z) протягивается вдоль замкнутого контура против часовой
+  const n = path.length, m = prof.length, pos = [], idx = [];
+  const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
+  for (let i = 0; i < n; i++) {
+    const a = path[(i - 1 + n) % n], p = path[i], b = path[(i + 1) % n];
+    const t1 = unit(p[0] - a[0], p[1] - a[1]), t2 = unit(b[0] - p[0], b[1] - p[1]);
+    const t = unit(t1[0] + t2[0], t1[1] + t2[1]);
+    const k = 1 / Math.max(0.5, t[0] * t1[0] + t[1] * t1[1]);      // сохранить толщину в изломах
+    for (const [d, z] of prof) pos.push(p[0] + t[1] * d * k, p[1] - t[0] * d * k, z);
+  }
+  for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) {
+    const a = i * m + j, b = ((i + 1) % n) * m + j, c = ((i + 1) % n) * m + (j + 1) % m, d = i * m + (j + 1) % m;
+    idx.push(a, b, d, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+function apply3d() {
+  const step = 120 * S3.explode;
+  for (const g of S3.objs) {
+    const u = g.userData;
+    g.visible = !!S3.vis[u.grp];
+    g.position.z = u.level * step;
+    const mat = g.children[0].material;
+    if (u.grp === "cover") {
+      mat.transparent = S3.ghost; mat.opacity = S3.ghost ? 0.28 : 1; mat.depthWrite = !S3.ghost;
+      mat.needsUpdate = true;
+    }
+  }
+}
+
+function setCut(axis) {
+  S3.axis = axis;
+  document.querySelectorAll("#cutaxis button").forEach(b => b.classList.toggle("on", b.dataset.axis === axis));
+  const r = document.getElementById("cutpos");
+  S3.clips.length = 0;
+  r.disabled = axis === "none";
+  // остаётся дальняя от камеры часть — срез смотрит на зрителя
+  if (axis === "x") { S3.clip.normal.set(1, 0, 0); r.min = -360; r.max = 360; r.value = -200; }
+  if (axis === "y") { S3.clip.normal.set(0, 1, 0); r.min = -260; r.max = 260; r.value = 0; }
+  if (axis !== "none") { S3.clip.constant = -r.value; S3.clips.push(S3.clip); }
+}
+
+function setView(v) {
+  const t = new THREE.Vector3(0, 0, 215);
+  const dirs = { iso: [-0.95, -1.35, 0.95], front: [0, -1, 0.02], side: [1, 0, 0.02], top: [0, -0.02, 1],
+    cut: [-1.5, -0.62, 0.5] };
+  const d = new THREE.Vector3(...dirs[v]).normalize();
+  const a = S3.camera.aspect || 1;
+  const fit = 900 / Math.tan(THREE.MathUtils.degToRad(S3.camera.fov / 2)) / Math.min(1, a * 0.85);
+  const dist = fit * (1 + 0.9 * S3.explode) * (v === "cut" ? 0.72 : 1);
+  S3.camera.position.copy(t).addScaledVector(d, dist);
+  S3.controls.target.copy(t);
+  S3.controls.update();
+}
+
+function markPreset(name) {
+  document.querySelectorAll("#presets button").forEach(b => b.classList.toggle("on", b.dataset.preset === name));
+}
+function preset(name) {
+  const on = { product: ["cover", "foam", "card", "frame", "hw"], inside: ["cover", "foam", "card", "frame", "hw"],
+    frame: ["frame", "hw"], exploded: ["frame", "hw"] }[name];
+  LAYERS.forEach(([id]) => { S3.vis[id] = on.includes(id); });
+  document.querySelectorAll("#layers input").forEach(i => i.checked = S3.vis[i.dataset.layer]);
+  S3.explode = name === "exploded" ? 1 : 0;
+  document.getElementById("explode").value = S3.explode;
+  setCut(name === "inside" ? "x" : "none");
+  apply3d(); setView(name === "inside" ? "cut" : "iso"); markPreset(name);
+}
+
+// ------------------------------------------------------------------ раскрой и УП
+const GROUPS = { mark: "метки опор", pocket: "пазы (выборка)", hole: "отверстия", nested: "детали в окнах",
+  window: "окна рамок", outline: "наружные контуры" };
+const N = { s: 1, ox: 0, oy: 0, n: 0, total: 0, playing: false };
+
+function initNest() {
+  const cv = document.getElementById("nest"), ctx = cv.getContext("2d"), wrap = document.getElementById("nestwrap");
+  const C = D.cam, depth = -C.depth, tabZ = C.tab;
+  const passes = [...new Set(D.strokes.filter(s => s.p.length > 3)
+      .flatMap(s => { const z = []; for (let i = 2; i < s.p.length; i += 3) z.push(s.p[i]); return z; }))]
+    .filter(z => z < 0 && Math.abs(z - tabZ) > 1e-6 && z > -C.depth - 0.01).sort((a, b) => b - a);
+  const PASS_COL = ["#f2b98a", "#e5873f", "#b8321f"];
+  const colorOf = (z) => {
+    if (Math.abs(z - tabZ) < 1e-6) return "#2e9d5b";
+    const i = passes.findIndex(p => Math.abs(p - z) < 1e-6);
+    return i < 0 ? "#888" : PASS_COL[Math.min(i + PASS_COL.length - passes.length, PASS_COL.length - 1)];
+  };
+  // легенда
+  const lg = document.getElementById("legend");
+  passes.forEach((p, i) => lg.insertAdjacentHTML("beforeend",
+    `<i style="background:${colorOf(p)}"></i><span>проход ${i + 1}, Z ${p.toFixed(2)}</span>`));
+  lg.insertAdjacentHTML("beforeend", `<i style="background:#2e9d5b"></i><span>над перемычкой, Z ${tabZ}</span>` +
+    `<i style="background:#2a7a2a;height:8px;width:8px;border-radius:50%"></i><span>метки опор, Z −2</span>` +
+    `<i style="border-top:2px dashed #8a8a8a;height:0"></i><span>холостой ход</span>`);
+
+  // точки и время
+  const idx = []; let t = 0, prev = [0, 0];
+  const RAPID = 8000;
+  D.strokes.forEach((s, si) => {
+    const p = s.p;
+    t += Math.hypot(p[0] - prev[0], p[1] - prev[1]) / RAPID * 60;
+    for (let i = 0; i < p.length; i += 3) {
+      if (i) t += Math.hypot(p[i] - p[i - 3], p[i + 1] - p[i - 2], (p[i + 2] - p[i - 1])) / C.feed * 60;
+      idx.push([si, i / 3, t]);
+    }
+    prev = [p[p.length - 3], p[p.length - 2]];
+  });
+  N.total = idx.length; N.n = N.total;
+  const prog = document.getElementById("progress");
+  prog.max = N.total; prog.value = N.total;
+
+  const fit = () => {
+    const w = wrap.clientWidth, h = wrap.clientHeight, sw = D.nest.sheet[0], sh = D.nest.sheet[1];
+    const panel = document.getElementById("panelnest");
+    const right = (panel.offsetParent && innerWidth > 760) ? panel.offsetWidth + 24 : 0;
+    N.s = Math.min((w - right - 40) / sw, (h - 40) / sh);
+    N.ox = (w - right - sw * N.s) / 2; N.oy = (h + sh * N.s) / 2;
+  };
+  const X = (x) => N.ox + x * N.s, Y = (y) => N.oy - y * N.s;
+  const path = (pts) => { const p = new Path2D(); pts.forEach((q, i) => i ? p.lineTo(X(q[0]), Y(q[1])) : p.moveTo(X(q[0]), Y(q[1]))); p.closePath(); return p; };
+
+  function draw() {
+    const dpr = Math.min(devicePixelRatio, 2), w = wrap.clientWidth, h = wrap.clientHeight;
+    if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = css("--scene"); ctx.fillRect(0, 0, w, h);
+    const [sw, sh] = D.nest.sheet;
+    ctx.fillStyle = "#f7f1e6"; ctx.strokeStyle = "#8b7a60"; ctx.lineWidth = 1;
+    ctx.fillRect(X(0), Y(sh), sw * N.s, sh * N.s); ctx.strokeRect(X(0), Y(sh), sw * N.s, sh * N.s);
+    for (const p of D.nest.parts) {
+      const pa = path(p.outer); p.holes.forEach(hh => pa.addPath(path(hh)));
+      ctx.fillStyle = "#e9cc9f"; ctx.fill(pa, "evenodd");
+      ctx.strokeStyle = "#7a5a3a"; ctx.lineWidth = 0.8; ctx.stroke(pa);
+      p.marks.forEach(m => { ctx.fillStyle = "#2a7a2a"; ctx.beginPath(); ctx.arc(X(m[0]), Y(m[1]), Math.max(2, 3 * N.s), 0, 7); ctx.fill(); });
+    }
+    if (document.getElementById("showpaths").checked) drawPaths();
+    if (document.getElementById("showlabels").checked) {
+      ctx.font = `600 ${Math.max(10, Math.min(18, 34 * N.s))}px system-ui, sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (const p of D.nest.parts) {
+        const lx = p.lx, ly = p.ly, txt = p.label;
+        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(247,241,230,.9)"; ctx.strokeText(txt, X(lx), Y(ly));
+        ctx.fillStyle = "#3b2a18"; ctx.fillText(txt, X(lx), Y(ly));
+      }
+    }
+    info();
+  }
+
+  function drawPaths() {
+    const rapid = document.getElementById("showrapid").checked;
+    let left = N.n, prev = [0, 0], last = null;
+    ctx.lineCap = "round"; ctx.lineJoin = "round";
+    for (const s of D.strokes) {
+      if (left <= 0) break;
+      const p = s.p, cnt = Math.min(p.length / 3, left);
+      left -= cnt;
+      if (rapid) {
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = "#8a8a8a"; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.moveTo(X(prev[0]), Y(prev[1])); ctx.lineTo(X(p[0]), Y(p[1])); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (p.length === 3) {
+        ctx.fillStyle = "#2a7a2a"; ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), Math.max(2.5, 3.2 * N.s), 0, 7); ctx.fill();
+      }
+      ctx.lineWidth = Math.max(1, 1.2 * N.s * 2);
+      let col = null;
+      for (let i = 3; i < cnt * 3; i += 3) {
+        const c = colorOf(Math.max(p[i + 2], p[i - 1]));
+        if (c !== col) { if (col) ctx.stroke(); col = c; ctx.strokeStyle = c; ctx.beginPath(); ctx.moveTo(X(p[i - 3]), Y(p[i - 2])); }
+        ctx.lineTo(X(p[i]), Y(p[i + 1]));
+      }
+      if (col) ctx.stroke();
+      last = [p[(cnt - 1) * 3], p[(cnt - 1) * 3 + 1], p[(cnt - 1) * 3 + 2]];
+      prev = [p[p.length - 3], p[p.length - 2]];
+    }
+    if (last && N.n < N.total) {
+      ctx.strokeStyle = "#1f3f7a"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(31,63,122,.25)";
+      ctx.beginPath(); ctx.arc(X(last[0]), Y(last[1]), Math.max(4, C.tool / 2 * N.s), 0, 7); ctx.fill(); ctx.stroke();
+    }
+  }
+
+  const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  function info() {
+    const k = Math.max(0, Math.min(N.total - 1, N.n - 1)), [si, pi, tt] = idx[k], s = D.strokes[si];
+    const z = s.p[pi * 3 + 2];
+    document.getElementById("nestinfo").innerHTML =
+      `<b>Операция</b><span>${s.l}</span><b>Группа</b><span>${GROUPS[s.g] || s.g}</span>` +
+      `<b>Z</b><span>${z.toFixed(2)}</span><b>По траектории</b><span>${mmss(tt)} из ${mmss(idx[N.total - 1][2])}</span>` +
+      `<b>Готово</b><span>${(100 * N.n / N.total).toFixed(1)}% · ${si + 1} / ${D.strokes.length} операций</span>` +
+      `<b>Всего</b><span>${D.cam.stats.cut_m} м реза, фреза Ø${C.tool}</span>`;
+  }
+
+  // проигрывание
+  const playBtn = document.getElementById("play");
+  let lastT = 0;
+  function tick(ts) {
+    if (!N.playing) return;
+    const dt = lastT ? (ts - lastT) / 1000 : 0; lastT = ts;
+    const k = Math.max(0, N.n - 1), target = idx[k][2] + dt * +document.getElementById("speed").value;
+    let n = N.n;
+    while (n < N.total && idx[n][2] <= target) n++;
+    N.n = Math.max(n, N.n + 1);
+    if (N.n >= N.total) { N.n = N.total; N.playing = false; playBtn.textContent = "▶ Пуск"; }
+    prog.value = N.n; draw();
+    if (N.playing) requestAnimationFrame(tick);
+  }
+  playBtn.onclick = () => {
+    if (N.playing) { N.playing = false; playBtn.textContent = "▶ Пуск"; return; }
+    if (N.n >= N.total) N.n = 0;
+    N.playing = true; lastT = 0; playBtn.textContent = "❚❚ Пауза"; requestAnimationFrame(tick);
+  };
+  document.getElementById("restart").onclick = () => { N.n = 0; prog.value = 0; draw(); };
+  prog.oninput = () => { N.n = +prog.value; draw(); };
+  ["showpaths", "showrapid", "showlabels"].forEach(id => document.getElementById(id).onchange = draw);
+
+  // масштаб и сдвиг
+  const ptrs = new Map(); let pinch = null;
+  const zoomAt = (mx, my, f) => { N.ox = mx - (mx - N.ox) * f; N.oy = my - (my - N.oy) * f; N.s *= f; draw(); };
+  cv.addEventListener("wheel", e => { e.preventDefault(); const r = cv.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+  cv.addEventListener("pointerdown", e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); });
+  cv.addEventListener("pointermove", e => {
+    if (!ptrs.has(e.pointerId)) return;
+    const old = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+    if (ptrs.size === 1) { N.ox += e.clientX - old[0]; N.oy += e.clientY - old[1]; draw(); }
+    else if (ptrs.size === 2) {
+      const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const r = cv.getBoundingClientRect();
+      if (pinch) zoomAt((a[0] + b[0]) / 2 - r.left, (a[1] + b[1]) / 2 - r.top, d / pinch);
+      pinch = d;
+    }
+  });
+  const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; };
+  cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
+  cv.addEventListener("dblclick", () => { fit(); draw(); });
+  window.addEventListener("resize", () => { if (document.getElementById("tab-nest").classList.contains("on")) { fit(); draw(); } });
+  fit(); draw();
+}
+
+// ------------------------------------------------------------------ листы
+function initSheets() {
+  const box = document.getElementById("sheets"), lb = document.getElementById("lightbox");
+  for (const s of D.sheets) {
+    const f = document.createElement("figure");
+    f.innerHTML = `<img alt="${s.title}" src="${s.src}"><figcaption>${s.title}</figcaption>`;
+    f.querySelector("img").onclick = () => { lb.querySelector("img").src = s.src; lb.style.display = "block"; };
+    box.appendChild(f);
+  }
+  lb.onclick = () => { lb.style.display = "none"; };
+}
+
+// ------------------------------------------------------------------ спецификация
+function initSpec() {
+  const S = D.spec, esc = (s) => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+  const table = (head, rows, num = []) => `<div class="card"><table>` +
+    (head ? `<thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>` : "") + `<tbody>` +
+    rows.map(r => `<tr>${r.map((c, i) => `<td${num.includes(i) ? ' class="n"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>";
+  const okN = S.checks.filter(c => c[0]).length;
+  document.getElementById("spec").innerHTML =
+    `<h2>Кратко</h2>` + table(null, S.facts) +
+    `<h2>Каркас — фанера ф15</h2>` + table(["Дет.", "Наименование", "Модуль", "Шт", "Габарит"], S.frame, [3]) +
+    `<h2>Мягкая часть</h2>` + table(["Дет.", "Наименование", "Материал", "Шт", "Размер", "Примечание"], S.soft, [3]) +
+    `<h2>Крепёж</h2>` + table(["Наименование", "Шт"], S.hw, [1]) +
+    `<h2>Проверки build.py — ${okN} из ${S.checks.length}</h2><div class="card">` +
+    S.checks.map(c => `<div class="check"><span class="${c[0] ? "ok" : "bad"}">${c[0] ? "✓" : "✗"}</span><span>${esc(c[1])}</span></div>`).join("") +
+    `</div>`;
+}
+
+showTab("3d");
+</script>
+</body>
+</html>

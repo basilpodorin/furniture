@@ -5,6 +5,7 @@ out/dxf/sheet_1.dxf   — раскладка на лист
 out/nc/sheet_1.tap    — УП (типовой пост, см. post_generic.py)
 out/album_A3.pdf      — 6 листов А3 (+ out/png/)
 out/report.txt        — спецификация, расход, проверки
+out/preview.html      — предпросмотр: 3D, раскрой с проигрыванием УП, листы, спецификация
 """
 import itertools
 import math
@@ -19,6 +20,7 @@ import nest
 import params as P
 import parts as PR
 import post_generic
+import preview
 import sheets
 import soft
 
@@ -182,6 +184,7 @@ def main():
     ply_area = sum(p.polygon().area * p.qty for p in PR.all_parts()) / 1e6
     chk = checks(placed, strokes)
     sheets.build_album(OUT, placed, stats, ply_area)
+    preview.build_preview(OUT, placed, strokes, stats, chk, ply_area)
     rep = report(placed, stats, chk, ply_area)
     (OUT / "report.txt").write_text(rep, encoding="utf-8")
     print(rep)
