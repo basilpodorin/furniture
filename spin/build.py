@@ -18,7 +18,7 @@ from lib.foam import GRADES, Soft
 from lib.frame import Frame, S
 
 OUT = Path(__file__).resolve().parent / "out"
-TRANSLIT = str.maketrans({"П": "P", "Р": "R", "Н": "N", "В": "V", "С": "S", "Г": "G",
+TRANSLIT = str.maketrans({"П": "P", "Р": "R", "Н": "N", "В": "V", "С": "S", "Г": "G", "Т": "T", "О": "O", "Б": "B",
                           "л": "l", "п": "p"})
 
 FOAM_COLORS = {"сиденье": "#eec35a", "спинка": "#e59f8b", "подлокотники": "#f1da8e",
@@ -64,7 +64,7 @@ def summary(frame, soft):
     ]
     n_inst = sum(p.qty for p in frame.parts)
     totals = [
-        ("Фанера ФК 18 мм", f"{ply:.1f} кг"),
+        ("Фанера ФК 18 и 15 мм", f"{ply:.1f} кг"),
         ("Деталей каркаса", f"{n_inst} шт., {len(frame.parts)} наим."),
         ("Поролон", f"{foam:.1f} кг"),
         ("Стальной диск", f"{steel:.1f} кг"),
@@ -160,13 +160,15 @@ def main():
     rep = clearance_report(frame)
     with open(OUT / "proverka_zazorov.txt", "w", encoding="utf-8") as f:
         f.write("Минимальная глубина деталей каркаса под поверхностью обивки, мм\n")
-        f.write("Номинал: стенки 40–50, кромка дна ≥20. Меньше 40 — только у канта сиденья (z≈305–320,\n"
-                "ткань заправляется в шов) и у складки сиденье/подлокотник (РС, ≈28).\n\n")
+        f.write("Номинал: стенки 40–50, кромка дна ≥20. Меньше 40 — у канта сиденья (z≈305–320, ткань\n"
+                "заправляется в шов), у складки сиденье/подлокотник (БС ≈37) и у скругления низа\n"
+                "боковины (БВ ≈22 — там поролон заворачивается под дно).\n\n")
         for code, name, d, p in rep:
             f.write(f"{code:5s} {name:48s} {d:6.1f}   точка {np.round(p).astype(int).tolist()}\n")
 
     from lib import export_cnc as X
-    for old in (OUT / "cnc").glob("raskroy_*.dxf"):
+    for old in [*(OUT / "cnc").glob("raskroy_*.dxf"), *(OUT / "cnc" / "parts").glob("*.dxf"),
+                *(OUT / "porolon").glob("*.dxf")]:
         old.unlink()
     placed, sheets = X.export_frame(frame, OUT / "cnc")
     # латинские имена файлов деталей (станки и CAM не всегда понимают кириллицу)

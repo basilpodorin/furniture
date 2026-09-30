@@ -13,6 +13,11 @@ def placements(part):
     """Список (origin, direction, mirror) для всех экземпляров детали."""
     if part.kind == "plate":
         return [None]
+    if part.instances:
+        out = []
+        for (ox, oy), (dx, dy) in part.instances:
+            out += [((ox, oy), (dx, dy), False), ((-ox, oy), (-dx, dy), True)]
+        return out
     ox, oy = part.origin
     dx, dy = part.direction
     if part.code == "ПГ1":
@@ -125,16 +130,25 @@ def viewer_data(frame, soft, cage_level_mesh):
             foam.append(dict(code=f.code, name=f.name, kind="xy", z0=z0, t=50,
                              outer=np.round(np.array(f.pattern.exterior.coords), 1).tolist()))
     # подлокотники (внутр. поролон) и спинка — упрощённые плиты
-    L, H = soft.info["arm"]["length"], soft.info["arm"]["height"]
-    y0 = frame.arm_tip_y - 40
+    # поролон подлокотника изнутри: профиль по обшивке ОП (+ заход 40 на торец), в пределах обивки
+    from shapely.geometry import Polygon as _Poly, box as _box
+    from .foam import WRAP
+    from .frame import S as _S
+    zt, z4 = P.Z_P3 + P.PLY, P.Z_P4 + P.PLY
+    xm = P.ARM_SKIN_X - 20
+    sec = _S.section(0, xm).buffer(-WRAP)
+    front = [(y - 40, z) for y, z in frame.skin_front]
+    y_back = P.BACK_BELT_Y0 - P.CAVITY_R + 20
+    zone = _Poly(front + [(y_back, z4), (y_back, zt)]).buffer(0)
+    arm = sec.intersection(zone).intersection(_box(-600, zt, y_back, z4))
+    arm = max(getattr(arm, "geoms", [arm]), key=lambda g: g.area)
     for sx in (-1, 1):
-        x_in = sx * (P.ARM_SKIN_X - 4 - 40)
-        x_out = sx * (P.ARM_SKIN_X - 4)
-        foam.append(dict(code="Пл1", name="Подлокотник внутр.", kind="box",
-                         min=[min(x_in, x_out), y0, P.Z_P3 + P.PLY],
-                         max=[max(x_in, x_out), y0 + L, P.Z_P3 + P.PLY + H]))
+        a, b = sx * (P.ARM_SKIN_X - 40), sx * P.ARM_SKIN_X
+        foam.append(dict(code="Пл1", name="Подлокотник внутр. (Пл1)", kind="yz", x0=min(a, b),
+                         x1=max(a, b), outer=np.round(np.array(arm.exterior.coords), 1).tolist()))
     bp = soft.back_profile
     wback = P.ARM_SKIN_X - P.CAVITY_R
+    foam.append(outer_foam_mesh(V, Q))
     foam.append(dict(code="Сп", name="Спинка (Сп1+Сп2)", kind="yz", x0=-wback, x1=wback,
                      outer=np.round(np.array(bp.exterior.coords), 1).tolist()))
     data_belts = belt_ribbons(frame, soft)
@@ -148,6 +162,33 @@ def viewer_data(frame, soft, cage_level_mesh):
                     BACK_PART_Y=P.BACK_PART_Y, Z_SEAT_BACK=P.Z_SEAT_BACK,
                     front_rail_in=frame.front_rail_in, CAVITY_R=P.CAVITY_R))
     return data
+
+
+def outer_foam_mesh(V, Q):
+    """Наружный поролон стенок (Н1, Н2 и завороты под дно): поверхность обивки, смещённая
+    внутрь на толщину обёртки, без зон сиденья, спинки, подлокотников изнутри и валика."""
+    from .foam import WRAP
+    from .geom import triangulate, vertex_normals
+    T = triangulate(Q)
+    n = vertex_normals(V, T)
+    c = V.mean(0)
+    if np.einsum("ij,ij->i", n, V - c).mean() < 0:
+        n = -n
+    W = V - n * WRAP
+    cen = W[T].mean(1)
+    zt = P.Z_P3 + P.PLY
+    x, y, z = cen[:, 0], cen[:, 1], cen[:, 2]
+    in_cavity = (np.abs(x) < P.ARM_SKIN_X) & (y < P.BACK_BELT_Y1 + 10) & (z > zt - 5)
+    on_top = z > P.Z_P4 + P.PLY
+    keep = ~(in_cavity | on_top)
+    T = T[keep]
+    used = np.unique(T)
+    remap = -np.ones(len(W), int)
+    remap[used] = np.arange(len(used))
+    Wq = np.round(W[used]).astype("<i2")
+    Ti = remap[T].astype("<u2" if len(used) < 65535 else "<u4")
+    return dict(code="Н", name="Наружные стенки Н1, Н2 (ST 2536, 40 мм)", kind="mesh",
+                v=b64(Wq), i=b64(Ti), itype=str(Ti.dtype))
 
 
 def belt_ribbons(frame, soft):

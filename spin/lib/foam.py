@@ -101,7 +101,7 @@ class Soft:
         prof = prof.difference(box(y_join, z_under_back, y1 + 1, 900))
         prof = largest(prof.buffer(3).buffer(-3))
         self.seat_profile = prof
-        half_w = P.ARM_SKIN_X - 4 - 40            # между внутренними поролонами подлокотников
+        half_w = P.ARM_SKIN_X - 40                # между поролонами подлокотников (на БВ)
         self.seat_half_w = half_w
         # С1 — основа 80 мм, параллельно опоре
         base = largest(prof.intersection(self._band_above(deck, 80)))
@@ -199,7 +199,7 @@ class Soft:
     # ---------------------------------------------------------- подлокотники внутри
     def _arms(self):
         z0, z1 = P.Z_P3 + P.PLY, P.Z_P4 + P.PLY
-        y_front = self.F.arm_tip_y - 40
+        y_front = self.F.arm_front_y - 40
         y_back = back_belt_y(450) - P.CAVITY_R + 20
         L, H = y_back - y_front, z1 - z0
         fs = S.section(1, 0.0)
@@ -211,12 +211,12 @@ class Soft:
         self.info["arm"] = dict(t=[round(t) for t in th], length=L, height=H)
         self.pieces.append(Foam(
             "Пл1", "Подлокотник — внутренняя сторона", "HR 3530", 40, box(0, 0, L, H), qty=2,
-            zone="подлокотники", note="на обшивку подлокотника; спереди заходит на торец стойки, "
+            zone="подлокотники", note="на боковину БВ; спереди заходит на торец, "
                                       "верхнюю кромку снять на ус под валик"))
         # торец подлокотника (перед стойкой), от П3 до П4
         self.pieces.append(Foam(
             "Пл2", "Торец подлокотника", "ST 2536", 40, box(0, 0, 120, H), qty=2,
-            zone="подлокотники", note="на переднюю грань стойки РС и концы полос; скруглить"))
+            zone="подлокотники", note="на переднюю кромку лекала ТП и концы полос; скруглить"))
 
     # ---------------------------------------------------------- верхний валик
     def _top_roll(self):
@@ -240,7 +240,7 @@ class Soft:
         mid = 4 + 20
         u_line = largest(plan_env(470)).convex_hull.buffer(mid)
         ring = LineString(u_line.exterior.coords)
-        tip = F.arm_tip_y
+        tip = F.arm_front_y
         back_part = ring.intersection(box(-2000, tip, 2000, 2000))
         L_u = back_part.length if back_part.geom_type == "LineString" else \
             sum(g.length for g in back_part.geoms)
@@ -258,6 +258,12 @@ class Soft:
             box(0, 0, L_u / 2 + 20, h_low + h_up), qty=2, zone="наружные стенки",
             note="от торца подлокотника до шва по центру спинки; снизу заворачивается под дно "
                  "на 30 мм; одна цельная полоса по высоте"))
+        # формирующий слой боковины: бок корпуса выпуклый («бочка»), а БН плоская
+        L_side = P.SIDE_Y_BACK - (F.arm_front_y - 40)
+        self.pieces.append(Foam(
+            "Н3", "Формирующий слой боковины (линза)", "EL 2540", 30, box(0, 0, L_side, 280), qty=2,
+            zone="наружные стенки",
+            note="на БН под Н1, по центру высоты (z≈190–470); края срезать «на нет» на 60–80 мм"))
         self.pieces.append(Foam(
             "Н2", "Наружная стенка: фасад под сиденьем", "ST 2536", 40,
             box(0, 0, L_front + 40, h_low), zone="наружные стенки",
@@ -304,12 +310,9 @@ class Soft:
     def _sheets(self):
         area = self.surface_area()
         info = self.info
-        arm_skin = (info["arm"]["length"], info["arm"]["height"])
         strips_low = 3 * info["outer"]["L_low"]
         strips_up = 4 * info["outer"]["L_u"]
         self.sheet_goods = [
-            dict(name="Обшивка подлокотника изнутри", material="Фанера 4 мм (или ДВП 3,2)",
-                 size=f"{arm_skin[0]:.0f}×{arm_skin[1]:.0f}", qty=2),
             dict(name="Полосы обшивки стенок, ширина 60", material="Гибкая фанера 4 мм",
                  size=f"суммарно {(strips_low + strips_up) / 1000:.1f} м.п.",
                  qty=1, note="низ — 3 ряда (z≈100/180/260), стенка — 4 ряда (z≈370/450/530/600)"),

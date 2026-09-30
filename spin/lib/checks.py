@@ -20,11 +20,9 @@ def part_points(part, step=8.0):
         for z in (part.z0, part.z0 + t):
             out.append(np.c_[pts2, np.full(len(pts2), z)])
         return np.vstack(out), [None]
-    variants = [(1, 1)] if part.qty == 1 or part.code.startswith("ПГ2") or part.code.startswith("ПГ3") \
-        else [(1, 1), (-1, 1)]
-    for sx, _ in variants:
-        ox, oy = sx * part.origin[0], part.origin[1]
-        dx, dy = sx * part.direction[0], part.direction[1]
+    from .export_3d import placements
+    variants = placements(part)
+    for (ox, oy), (dx, dy), _ in variants:
         nx, ny = -dy, dx
         for side in (-t / 2, t / 2):
             X = ox + pts2[:, 0] * dx + side * nx

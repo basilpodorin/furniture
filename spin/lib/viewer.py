@@ -92,8 +92,8 @@ td .sub{color:var(--muted); font-size:12px}
     <section>
       <h2>Разрез</h2>
       <div class="seg" id="axis" role="group" aria-label="Плоскость разреза">
-        <button type="button" data-axis="none" aria-pressed="false">Нет</button>
-        <button type="button" data-axis="x" aria-pressed="true">По оси (x)</button>
+        <button type="button" data-axis="none" aria-pressed="true">Нет</button>
+        <button type="button" data-axis="x" aria-pressed="false">По оси (x)</button>
         <button type="button" data-axis="y" aria-pressed="false">Поперёк (y)</button>
         <button type="button" data-axis="z" aria-pressed="false">План (z)</button>
       </div>
@@ -128,7 +128,7 @@ const D = JSON.parse(document.getElementById('data').textContent);
 const COLORS = {
   surface:'#7f939a', plate:'#dcbf8c', rib:'#cda56a', part:'#b98d55',
   seat:'#eec35a', back:'#e59f8b', arm:'#f1da8e', top:'#9db6c8',
-  belt:'#3e4a35', steel:'#26292d'
+  outer:'#c9ccd1', belt:'#3e4a35', steel:'#26292d'
 };
 const canvas = document.getElementById('c'), stage = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
@@ -192,6 +192,15 @@ D.parts.forEach(p=>{
 // поролон
 D.foam.forEach(f=>{
   let geo, color = f.code.startsWith('С') && !f.code.startsWith('Сп') ? COLORS.seat : f.code.startsWith('Сп') ? COLORS.back : f.code.startsWith('В') ? COLORS.top : COLORS.arm;
+  if(f.kind==='mesh'){
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(Float32Array.from(b64(f.v, Int16Array)), 3));
+    g.setIndex(new THREE.BufferAttribute(f.itype==='uint16' ? b64(f.i, Uint16Array) : b64(f.i, Uint32Array), 1));
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, mat(COLORS.outer, {transparent:true, opacity:.55, depthWrite:false, roughness:1}));
+    mesh.userData = {code:f.code, name:f.name, foam:true, info:{}};
+    group('foam').add(mesh); pickables.push(mesh); return;
+  }
   if(f.kind==='yz'){ geo = extrude(f.outer, [], f.x1-f.x0); const M=new THREE.Matrix4(); M.set(0,0,1,f.x0, 1,0,0,0, 0,1,0,0, 0,0,0,1); geo.applyMatrix4(M); }
   else if(f.kind==='xy'){ geo = extrude(f.outer, [], f.t); geo.translate(0,0,f.z0); }
   else { const s=[0,1,2].map(i=>f.max[i]-f.min[i]); geo = new THREE.BoxGeometry(s[0],s[1],s[2]); geo.translate((f.max[0]+f.min[0])/2,(f.max[1]+f.min[1])/2,(f.max[2]+f.min[2])/2); }
@@ -234,7 +243,7 @@ LAYERS.forEach(([k,label,color,on])=>{
 });
 
 // разрез
-let axis='x';
+let axis='none';
 const cut = document.getElementById('cut'), cutv = document.getElementById('cutv');
 function applyClip(){
   const v = +cut.value;
