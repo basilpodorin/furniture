@@ -135,7 +135,7 @@ def viewer_data(frame, soft, cage_level_mesh):
     from .foam import WRAP
     from .frame import S as _S
     zt, z4 = P.Z_P3 + P.PLY, P.Z_P4 + P.PLY
-    xm = P.ARM_SKIN_X - 20
+    xm = P.ARM_SKIN_X - P.SKIN_T - 20
     sec = _S.section(0, xm).buffer(-WRAP)
     front = [(y - 40, z) for y, z in frame.skin_front]
     y_back = P.BACK_BELT_Y0 - P.CAVITY_R + 20
@@ -143,7 +143,7 @@ def viewer_data(frame, soft, cage_level_mesh):
     arm = sec.intersection(zone).intersection(_box(-600, zt, y_back, z4))
     arm = max(getattr(arm, "geoms", [arm]), key=lambda g: g.area)
     for sx in (-1, 1):
-        a, b = sx * (P.ARM_SKIN_X - 40), sx * P.ARM_SKIN_X
+        a, b = sx * (P.ARM_SKIN_X - P.SKIN_T - 40), sx * (P.ARM_SKIN_X - P.SKIN_T)
         foam.append(dict(code="Пл1", name="Подлокотник внутр. (Пл1)", kind="yz", x0=min(a, b),
                          x1=max(a, b), outer=np.round(np.array(arm.exterior.coords), 1).tolist()))
     bp = soft.back_profile

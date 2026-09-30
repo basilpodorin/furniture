@@ -101,7 +101,7 @@ class Soft:
         prof = prof.difference(box(y_join, z_under_back, y1 + 1, 900))
         prof = largest(prof.buffer(3).buffer(-3))
         self.seat_profile = prof
-        half_w = P.ARM_SKIN_X - 40                # между поролонами подлокотников (на БВ)
+        half_w = P.ARM_SKIN_X - P.SKIN_T - 40     # между поролонами подлокотников (на обшивке ОП)
         self.seat_half_w = half_w
         # С1 — основа 80 мм, параллельно опоре
         base = largest(prof.intersection(self._band_above(deck, 80)))
@@ -211,7 +211,7 @@ class Soft:
         self.info["arm"] = dict(t=[round(t) for t in th], length=L, height=H)
         self.pieces.append(Foam(
             "Пл1", "Подлокотник — внутренняя сторона", "HR 3530", 40, box(0, 0, L, H), qty=2,
-            zone="подлокотники", note="на боковину БВ; спереди заходит на торец, "
+            zone="подлокотники", note="на обшивку ОП; спереди заходит на торец ТП, "
                                       "верхнюю кромку снять на ус под валик"))
         # торец подлокотника (перед стойкой), от П3 до П4
         self.pieces.append(Foam(
@@ -254,16 +254,10 @@ class Soft:
         h_up = P.Z_P4 + P.PLY - (P.Z_P3 + P.PLY)
         self.info["outer"] = dict(L_u=L_u, L_low=L_low, L_front=L_front, h_low=h_low, h_up=h_up)
         self.pieces.append(Foam(
-            "Н1", "Наружная стенка: спинка + боковины (половина)", "ST 2536", 40,
+            "Н1", "Наружная стенка: спинка + бок (половина)", "ST 2536", 40,
             box(0, 0, L_u / 2 + 20, h_low + h_up), qty=2, zone="наружные стенки",
             note="от торца подлокотника до шва по центру спинки; снизу заворачивается под дно "
                  "на 30 мм; одна цельная полоса по высоте"))
-        # формирующий слой боковины: бок корпуса выпуклый («бочка»), а БН плоская
-        L_side = P.SIDE_Y_BACK - (F.arm_front_y - 40)
-        self.pieces.append(Foam(
-            "Н3", "Формирующий слой боковины (линза)", "EL 2540", 30, box(0, 0, L_side, 280), qty=2,
-            zone="наружные стенки",
-            note="на БН под Н1, по центру высоты (z≈190–470); края срезать «на нет» на 60–80 мм"))
         self.pieces.append(Foam(
             "Н2", "Наружная стенка: фасад под сиденьем", "ST 2536", 40,
             box(0, 0, L_front + 40, h_low), zone="наружные стенки",

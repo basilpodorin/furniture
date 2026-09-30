@@ -208,73 +208,6 @@ def dogbone_slot(cx, cy, length, width, angle_deg):
     return affinity.translate(g, cx, cy)
 
 
-def lighten(shape, busy, cell=100, web=40, r=16):
-    """Облегчающие окна cell×cell со скруглением r, перемычки ≥ web, вне занятых зон.
-    Сетка сдвигается, чтобы вырезать как можно больше (поролон 40 мм окна перекрывает)."""
-    inner = shape.buffer(-web)
-    if inner.is_empty:
-        return shape
-    x0, y0, x1, y1 = inner.bounds
-    free = inner.difference(busy.buffer(web / 2))
-    best = shape
-    for ox in np.linspace(0, cell + web, 5, endpoint=False):
-        for oy in np.linspace(0, cell + web, 5, endpoint=False):
-            out = shape
-            for x in np.arange(x0 - ox, x1, cell + web):
-                for y in np.arange(y0 - oy, y1, cell + web):
-                    win = box(x, y, x + cell, y + cell).intersection(free)
-                    for g in getattr(win, "geoms", [win]):
-                        g = g.buffer(-r).buffer(r)
-                        if not g.is_empty and g.area > 2500 and g.geom_type == "Polygon":
-                            out = out.difference(g)
-            if out.area < best.area:
-                best = out
-    return best
-
-
-def in_side_zone(q):
-    """Станция попадает на боковину — там рёбер нет (боковина — продольное лекало)."""
-    return abs(q[0]) > P.SIDE_BV[0] - 30 and q[1] < P.SIDE_Y_BACK + 25
-
-
-def y_interval(region, x, y_ref=0.0):
-    """Отрезок области на вертикали x, содержащий y_ref: (y_min, y_max) или None."""
-    hit = LineString([(x, -1500), (x, 1500)]).intersection(region)
-    for g in getattr(hit, "geoms", [hit]):
-        if g.is_empty or g.geom_type != "LineString":
-            continue
-        ys = [c[1] for c in g.coords]
-        if min(ys) <= y_ref <= max(ys):
-            return min(ys), max(ys)
-    return None
-
-
-def side_rows(faces, z_lo, z_hi, y_back, step=5.0):
-    """Контур продольного лекала: для каждой высоты — (z, y_перед, y_зад), где обе пласти
-    (x, отступ r(z)) лежат внутри поверхности обивки с нужным запасом."""
-    rows = []
-    for z in np.unique(np.append(np.arange(z_lo, z_hi, step), z_hi)):
-        f, b = -1e9, y_back
-        for x, r in faces:
-            iv = y_interval(plan_env(z, round(r(z))), x)
-            if iv is None:
-                f = None
-                break
-            f, b = max(f, iv[0]), min(b, iv[1])
-        if f is not None and b - f > 30:
-            rows.append((z, f, b))
-    if rows and rows[0][0] - z_lo <= 20:      # довести до опорной плиты
-        rows.insert(0, (z_lo, rows[0][1], rows[0][2]))
-    return rows
-
-
-def rows_polygon(rows, y_ref):
-    """(z, y_перед, y_зад) → полигон в координатах лекала (u = y_ref − y, z)."""
-    front = close_profile([(y_ref - f, z) for z, f, b in rows])
-    back = [(y_ref - b, z) for z, f, b in rows]
-    return smooth(largest(Polygon(front + back[::-1]).buffer(0)), 2)
-
-
 def close_profile(pts, half=6):
     """Морфологическое закрытие кромки u(z): убирает узкие выемки (≤ 2·half шагов),
     не выдвигая кромку на гладких участках."""
@@ -285,11 +218,33 @@ def close_profile(pts, half=6):
     return [(float(c), z) for c, (_, z) in zip(cl, pts)]
 
 
+def smooth_down(pts, half=12):
+    """Плавная кромка без выхода вперёд: минимум по окну, затем среднее по тому же окну
+    (результат не больше исходного u ни в одной точке)."""
+    u = np.array([p[0] for p in pts], float)
+    n = len(u)
+    mn = np.array([u[max(0, i - half):i + half + 1].min() for i in range(n)])
+    av = np.array([mn[max(0, i - half):i + half + 1].mean() for i in range(n)])
+    return [(float(a), z) for a, (_, z) in zip(av, pts)]
+
+
 def front_y(region, x, y_max=0.0):
     """Самая передняя (минимальная) координата y области на вертикали x (в передней половине)."""
     hit = LineString([(x, -1500), (x, y_max)]).intersection(region)
     ys = [c[1] for g in getattr(hit, "geoms", [hit]) if not g.is_empty for c in g.coords]
     return min(ys) if ys else None
+
+
+def face_y_at(rib, x):
+    """y передней (обращённой к фасаду) пласти ребра на линии x = const."""
+    (ox, oy), (dx, dy) = rib.origin, rib.direction
+    if abs(dx) < 1e-6:
+        return None
+    u = (x - ox) / dx
+    u0, _, u1, _ = rib.shape.bounds
+    if not (u0 - 5 <= u <= u1 + 5):          # линия x = const не пересекает само ребро
+        return None
+    return oy + u * dy - (rib.thickness / 2) / abs(dx)
 
 
 def plate_interval(plate, origin, direction, margin=T / 2 + 6):
@@ -340,9 +295,7 @@ class Frame:
         opening = rounded_rect(-P.SEAT_OPEN_X, self.front_rail_in, P.SEAT_OPEN_X,
                                P.SEAT_OPEN_BACK, 30)
         self.p3_outer = p3o
-        arms = unary_union([box(P.SIDE_BV[0], -2000, 2000, P.SIDE_Y_BACK),
-                            box(-2000, -2000, -P.SIDE_BV[0], P.SIDE_Y_BACK)])
-        self.p3 = largest(p3o.difference(opening).difference(arms))
+        self.p3 = p3o.difference(opening)
         # П4 — верхний шаблон (П-образный)
         zt = P.Z_P4 + T
         p4 = plate_env(P.Z_P4).difference(cavity(zt))
@@ -352,11 +305,21 @@ class Frame:
     # ---------------------------------------------------------- перегородки
     def _partitions(self):
         z0, z1 = P.Z_P1 + T, P.Z_P3
-        xs = P.SIDE_BV[0] + T / 2                 # перегородки упираются в боковины БВ
+        xs = P.SEAT_OPEN_X + T / 2 + 3          # ось боковых перегородок
         yf = self.front_rail_in - T / 2 - 6       # ось передней
         yb = P.BACK_PART_Y + T / 2                # ось задней
         self.part_axes = dict(xs=xs, yf=yf, yb=yb)
+        L_side = (yb + T / 2) - (yf - T / 2)
         parts = []
+        # боковые: вдоль Y, от передней до задней (сквозные), u — вдоль +Y
+        prof = box(0, z0, L_side, z1)
+        for u0 in (25, L_side / 2 - TENW / 2, L_side - 25 - TENW):
+            prof = prof.union(tenon(u0, u0 + TENW, z0, False, T))
+            prof = prof.union(tenon(u0, u0 + TENW, z1, True, T / 2))
+        side = Part("ПГ1", "Перегородка боковая", prof, "rib", qty=2,
+                    origin=(xs, yf - T / 2), direction=(0, 1),
+                    note="пара; ставится по пазам в П1 и П3")
+        parts.append(side)
         # передняя: вдоль X между боковыми
         L_fr = 2 * (xs - T / 2)
         prof = box(0, z0, L_fr, z1)
@@ -385,18 +348,22 @@ class Frame:
         self.partitions = parts
         # пазы в П1/П3
         for p in parts:
-            self._add_mortises(p, p.shape)
+            if p.code == "ПГ1":
+                for sx in (-1, 1):
+                    q = Part(p.code, p.name, p.shape, "rib", origin=(sx * xs, yf - T / 2),
+                             direction=(0, 1))
+                    self._add_mortises(q, p.shape)
+            else:
+                self._add_mortises(p, p.shape)
         # «запретные» зоны для рёбер — внешние грани перегородок
         self.part_block = unary_union([
             box(-xs - T / 2, yf - T / 2, xs + T / 2, yb + T / 2)])
 
-    def _add_mortises(self, rib, prof, plates=("П1", "П3", "П4")):
+    def _add_mortises(self, rib, prof):
         """Найти шипы ребра (выступы за z0/z1) и добавить пазы в плиты."""
         levels = {"П1": (P.Z_P1, P.Z_P1 + T), "П3": (P.Z_P3, P.Z_P3 + T),
                   "П4": (P.Z_P4, P.Z_P4 + T)}
         for plate, (za, zb) in levels.items():
-            if plate not in plates:
-                continue
             band = prof.intersection(box(-5000, za + 0.5, 5000, zb - 0.5))
             for g in getattr(band, "geoms", [band]):
                 if g.is_empty or g.area < 20:
@@ -421,10 +388,7 @@ class Frame:
         curve = self.station_curve
         ribs = []
         blk = self.part_block
-        k = 0
-        for q, n, s in stations(curve, P.RIB_PITCH):
-            if in_side_zone(q):
-                continue
+        for i, (q, n, s) in enumerate(stations(curve, P.RIB_PITCH)):
             # глубина: не дальше перегородок
             ray = LineString([q, (q[0] + 400 * n[0], q[1] + 400 * n[1])])
             depth = P.RIB_DEPTH_LOW
@@ -449,8 +413,7 @@ class Frame:
             prof = self._add_rib_tenons(prof, zlo, zhi, bottom_depth=T if base else 0,
                                         top_depth=T / 2, top_pos=0.8, origin=q, direction=n,
                                         bottom_plate=self.p1, top_plate=self.p3)
-            k += 1
-            code = f"РН{k}"
+            code = f"РН{i + 1}"
             center = abs(q[0]) < 1
             ribs.append(Part(code, "Ребро нижнего короба", prof, "rib", **RIB_KW,
                              qty=1 if center else 2, origin=q, direction=n,
@@ -466,10 +429,7 @@ class Frame:
         pts = [curve.interpolate(s) for s in np.linspace(0, curve.length, 400)]
         end = next(s for s, p in zip(np.linspace(0, curve.length, 400), pts) if p.y < tip_y + 60)
         ribs = []
-        k = 0
-        for q, n, s in stations(curve, P.RIB_PITCH, 0, end):
-            if in_side_zone(q) or q[1] < P.SIDE_Y_BACK:
-                continue
+        for i, (q, n, s) in enumerate(stations(curve, P.RIB_PITCH, 0, end)):
             inner = []
             for z in np.linspace(zlo, zhi, 8):
                 cav = cavity(z, extra_back=back_gap(z))
@@ -486,109 +446,90 @@ class Frame:
                                         bottom_pos=0.1, origin=q, direction=n,
                                         bottom_plate=self.p3, top_plate=self.p4)
             center = abs(q[0]) < 1
-            k += 1
-            ribs.append(Part(f"РВ{k}", "Ребро стенки спинки", prof, "rib",
+            ribs.append(Part(f"РВ{i + 1}", "Ребро стенки (спинка/подлокотник)", prof, "rib",
                              **RIB_KW, qty=1 if center else 2, origin=q, direction=n,
                              note="лекало по сечению модели" + ("" if center else "; пара")))
         self.upper_ribs = ribs
 
-    # ---------------------------------------------------------- боковины
-    def _sides(self):
-        """Боковины: продольные лекала на всю высоту (от П1 до П4). Передние кромки
-        повторяют профиль торца подлокотника и бока корпуса по модели."""
-        z_lo, z_hi = P.Z_P1 + T, P.Z_P4
-        yb = P.SIDE_Y_BACK
+    # ---------------------------------------------------------- торец боковины
+    def _arm_front(self):
+        """Торец боковины: одно продольное лекало в плоскости x = ARM_FRONT_X на всю высоту,
+        разделённое плитой П3 (как все рёбра): ТН — от низа до П3, ТП — от П3 до П4.
+        Передняя кромка повторяет профиль торца подлокотника и бока корпуса по модели."""
+        xc, t = P.ARM_FRONT_X, P.PLY_RIB
 
-        def ramp(z):                     # у низа корпуса отступ меньше (скругление, ткань под дно)
+        def ramp(z):                     # у низа отступ меньше (скругление, ткань под дно)
             return float(np.clip((z - 90) / 60, 0, 1))
 
-        def r_out(z):
-            return P.BOTTOM_MARGIN + (P.OUT_OFFSET - P.BOTTOM_MARGIN) * ramp(z)
+        def front_rows(zlo, zhi, y_back, offset):
+            pts = []
+            for z in np.unique(np.append(np.arange(zlo, zhi, 5.0), zhi)):
+                env = plan_env(z, round(offset(z)))
+                ys = [front_y(env, xc - t / 2), front_y(env, xc + t / 2)]
+                if None in ys or y_back - max(ys) < 25:
+                    continue
+                pts.append((y_back - max(ys), z))
+            if pts and pts[0][1] - zlo <= 20:
+                pts.insert(0, (pts[0][0], zlo))
+            return close_profile(pts)
 
-        def r_in(z):
-            return P.BOTTOM_MARGIN + (P.SIDE_INNER_R - P.BOTTOM_MARGIN) * ramp(z)
+        def first_rib_face(ribs):
+            ys = [face_y_at(r, xc) for r in ribs if r.origin[0] > 200]
+            ys = [y for y in ys if y is not None and y < 0]
+            return min(ys)
 
-        def full(z):
-            return P.OUT_OFFSET
-        specs = [
-            ("БВ", "Боковина внутренняя (стенка подлокотника и короба сиденья)", P.SIDE_BV,
-             [(P.SIDE_BV[0], r_in), (P.SIDE_BV[1], r_out)], yb, P.PLY_RIB),
-            ("БС", "Боковина средняя — торцевая вставка", P.SIDE_BS,
-             [(P.SIDE_BS[0], full), (P.SIDE_BS[1], full)], P.SIDE_BS_BACK, P.PLY),
-            ("БН", "Боковина наружная", P.SIDE_BN,
-             [(P.SIDE_BN[0], full), (P.SIDE_BN[1], full)], yb, P.PLY_RIB),
-        ]
-        sides, fronts = [], {}
-        for code, name, (xa, xb), faces, y_back, t in specs:
-            rows = side_rows(faces, z_lo, z_hi, y_back)
-            prof = rows_polygon(rows, yb)
-            xc = (xa + xb) / 2
-            fronts[code] = {z: f for z, f, b in rows}
-            part = Part(code, name, prof, "rib", qty=2, thickness=t,
-                        material=f"Фанера берёзовая ФК {t:.0f} мм", origin=(xc, yb),
-                        direction=(0.0, -1.0), note="пара; передняя кромка — профиль торца по модели")
-            sides.append(part)
-        bv, bs, bn = sides
-        # шипы в П1 (только БВ стоит на дне) и в П4
-        bv.shape = self._edge_tenons(bv, z_lo, False, T, self.p1)
-        for p in (bv, bs):
-            p.shape = self._edge_tenons(p, z_hi, True, T, self.p4)
-        # П3 — шипы в БВ по боковым кромкам, пазы в БВ
-        slots = []
-        for yc in (self.front_rail_in - 30, -30.0, yb - 45):
-            for sx in (-1, 1):
-                x0 = P.SIDE_BV[0] if sx > 0 else -P.SIDE_BV[1]
-                self.p3 = self.p3.union(box(x0, yc - TENW / 2, x0 + P.PLY_RIB, yc + TENW / 2))
-            slots.append(dogbone_slot(yb - yc, P.Z_P3 + T / 2, TENW, T, 0))
-        bv.shape = bv.shape.difference(unary_union(slots))
-        bv.note += "; пазы под шипы П3; к БВ упираются ПГ2, ПГ3 (конфирматы)"
-        for p in (bv, bs):
-            for sx in (1, -1):
-                q = Part(p.code, "", p.shape, "rib", thickness=p.thickness,
-                         origin=(sx * p.origin[0], p.origin[1]), direction=p.direction)
-                self._add_mortises(q, p.shape, plates=("П1", "П4"))
-        # проставки ПР между БВ и БН (в зазоре БС) — по уровням; места, где обе боковины сплошные
-        xc = sum(P.SIDE_BS) / 2
-        keep = []
-        for lvl, zc in enumerate(P.SPACERS_Z, 1):
-            inst = []
-            for yc in P.SPACERS_Y:
-                need = box(yb - yc - 35, zc - 30, yb - yc + 35, zc + 30)
-                if bv.shape.contains(need) and bn.shape.contains(need):
-                    inst.append(((xc, yc + 35), (0.0, -1.0)))
-                    keep.append(need.buffer(22))
-            if inst:
-                sp = Part(f"ПР{lvl}", "Проставка между боковинами", box(0, zc - 30, 70, zc + 30),
-                          "rib", qty=2 * len(inst), thickness=P.SIDE_BS[1] - P.SIDE_BS[0],
-                          material="Фанера берёзовая ФК 18 мм",
-                          note="клей + 2 самореза 4×40 через БВ и через БН", instances=inst)
-                sides.append(sp)
-        # облегчающие окна в БВ и БН (перемычки ≥45 мм; поролон 40 мм их перекрывает)
-        busy = unary_union(keep + [box(-100, P.Z_P3 - 10, 1000, P.Z_P3 + T + 10)])
-        for p in (bv, bn):
-            p.shape = lighten(p.shape, busy)
-        self.sides = sides
-        # передняя кромка каркаса подлокотника и профиль БВ — для поролона и 3D
-        self.arm_front_y = min(min(fronts["БВ"].values()), min(fronts["БС"].values()))
-        self.skin_front = sorted(((f, z) for z, f in fronts["БВ"].items()), key=lambda p: p[1])
-
-    def _edge_tenons(self, part, z_edge, up, depth, plate, pitch=170):
-        """Несколько шипов вдоль кромки z_edge продольного лекала — в пределах плиты."""
-        prof = part.shape
-        edge = prof.intersection(box(-3000, z_edge - 0.5, 3000, z_edge + 0.5))
-        if edge.is_empty:
-            return prof
-        u0, _, u1, _ = edge.bounds
-        ivs = plate_interval(plate, part.origin, part.direction, margin=part.thickness / 2 + 6)
-        out = prof
-        for c, d in ivs:
-            a, b = max(u0 + 8, c), min(u1 - 8, d)
-            if b - a < TENW:
+        parts = []
+        # верхний: от П3 до П4, задней кромкой к первому ребру стенки
+        zlo, zhi = P.Z_P3 + T, P.Z_P4
+        yb = first_rib_face(self.upper_ribs) - 2
+        up = front_rows(zlo, zhi, yb, lambda z: P.OUT_OFFSET)
+        # нижний: от П3 вниз по скруглению низа, задней кромкой к первому боковому ребру
+        zlo2, zhi2 = P.Z_P1 + T, P.Z_P3
+        yb2 = first_rib_face(self.lower_ribs) - 2
+        lo = front_rows(zlo2, zhi2, yb2,
+                        lambda z: 30 + (P.OUT_OFFSET - 30) * ramp(z))
+        for code, name, pts, y_back, z0, z1, top_plate, bot_plate, bd, td in (
+                ("ТН", "Торец боковины нижний", lo, yb2, zlo2, zhi2, self.p3, self.p1, T, T / 2),
+                ("ТП", "Торец подлокотника", up, yb, zlo, zhi, self.p4, self.p3, T / 2, T)):
+            prof = Polygon([(0, pts[0][1])] + [(max(u, 20), z) for u, z in pts] + [(0, pts[-1][1])])
+            prof = smooth(largest(prof.buffer(0).intersection(box(0, z0, 400, z1))), 3)
+            q, n = (xc, y_back), (0.0, -1.0)
+            if prof.bounds[1] > z0 + 1:
+                bd = 0                                   # низ не доходит до П1 — висит на П3
+            prof = self._add_rib_tenons(prof, z0, z1, bottom_depth=bd, top_depth=td,
+                                        origin=q, direction=n, bottom_plate=bot_plate,
+                                        top_plate=top_plate)
+            parts.append(Part(code, name, prof, "rib", qty=2, **RIB_KW, origin=q, direction=n,
+                              note="пара; передняя кромка — профиль торца по модели; ТН и ТП "
+                                   "в одной плоскости образуют торец боковины от низа до верха"))
+        tn, tp = parts
+        self.lower_ribs.append(tn)
+        self.upper_ribs.append(tp)
+        fronts = {z: yb - u for u, z in up}
+        self.arm_front_y = min(min(fronts.values()), min(yb2 - u for u, z in lo))
+        # обшивка подлокотника изнутри — фанера 4 мм, спереди по профилю торца
+        xs = P.ARM_SKIN_X - P.SKIN_T / 2
+        zt4 = P.Z_P4 + T
+        y_rear = P.BACK_BELT_Y0 - P.CAVITY_R
+        zc = sorted(fronts)
+        pts, y_last = [], None
+        for z in np.arange(zlo, zt4 + 0.1, 5.0):
+            # у скруглённого переднего угла подлокотника изнутри допускаем 32 мм до обивки
+            y = front_y(plan_env(z, 32), P.ARM_SKIN_X - P.SKIN_T)
+            y = y_last if y is None else y            # у валика обшивка идёт вертикально до П4
+            if y is None:
                 continue
-            n = max(1, int((b - a) // pitch) + 1)
-            for um in np.linspace(a + TENW / 2, b - TENW / 2, n):
-                out = out.union(tenon(um - TENW / 2, um + TENW / 2, z_edge, up, depth))
-        return out
+            y = max(y, fronts[min(zc, key=lambda k: abs(k - z))] - 5)   # не дальше торца ТП
+            y_last = y
+            pts.append((y_rear - y, z))
+        pts = smooth_down(close_profile(pts))
+        self.skin_front = [(y_rear - u, z) for u, z in pts]
+        skin = Polygon([(0, zlo)] + pts + [(0, zt4)])
+        skin = smooth(largest(skin.buffer(0).intersection(box(0, zlo, 900, zt4))), 3)
+        self.skins = [Part("ОП", "Обшивка подлокотника изнутри", skin, "rib", qty=2,
+                           thickness=P.SKIN_T, material=f"Фанера {P.SKIN_T} мм (или ДВП 3,2)",
+                           origin=(xs, y_rear), direction=(0.0, -1.0),
+                           note="пара; скобы к кромкам рёбер, П3, П4 и ТП; спереди — по профилю торца")]
 
     def _add_rib_tenons(self, prof, zlo, zhi, bottom_depth, top_depth,
                         bottom_pos=0.5, top_pos=0.5, origin=None, direction=None,
@@ -628,7 +569,7 @@ class Frame:
         self._partitions()
         self._lower_ribs()
         self._upper_ribs()
-        self._sides()
+        self._arm_front()
         for r in self.lower_ribs + self.upper_ribs:
             for sx in ((1,) if r.qty == 1 else (1, -1)):
                 q = (sx * r.origin[0], r.origin[1])
@@ -636,14 +577,6 @@ class Frame:
                 self._add_mortises(Part(r.code, "", r.shape, "rib", origin=q, direction=d,
                                         thickness=r.thickness), r.shape)
         m1 = unary_union(self.mortises["П1"])
-        # окна в дне вне плиты П2, пазов и линий перегородок/боковин
-        xs = P.SIDE_BV[1]
-        busy1 = unary_union([m1.buffer(15), box(-200, -200, 200, 200),
-                             box(-xs - 5, -2000, -P.SIDE_BV[0] + 25, 2000),
-                             box(P.SIDE_BV[0] - 25, -2000, xs + 5, 2000),
-                             box(-2000, self.part_axes["yf"] - 30, 2000, self.part_axes["yf"] + 30),
-                             box(-2000, self.part_axes["yb"] - 30, 2000, self.part_axes["yb"] + 30)])
-        self.p1 = lighten(self.p1, busy1, cell=110, web=45)
         m3 = unary_union(self.mortises["П3"])
         m4 = unary_union(self.mortises["П4"])
         # дно с подмеханизменной плитой
@@ -665,7 +598,7 @@ class Frame:
                                note="передняя царга и опора стенки"))
         self.parts.append(Part("П4", "Верхний шаблон спинки и подлокотников",
                                self.p4.difference(m4), z0=P.Z_P4))
-        self.parts += self.partitions + self.sides + self.lower_ribs + self.upper_ribs
+        self.parts += self.partitions + self.lower_ribs + self.upper_ribs + self.skins
 
 
 TENW = P.TENON_W
