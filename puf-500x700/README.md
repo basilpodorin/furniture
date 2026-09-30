@@ -61,6 +61,6 @@ python3 build.py
 
 ## Предпросмотр
 
-`out/preview.html` собирается из `preview.py` и `preview_template.html`. 3D строится из тех же контуров, что уходят в DXF, раскрой — из той же траектории, что в `.tap`.
+`out/preview.html` собирается из `preview.py` и `preview_template.html`. `python3 build.py --web ПУТЬ` дополнительно пишет вариант для публикации на claude.ai (Artifact): без собственного каркаса документа, three.js подключается с jsdelivr. 3D строится из тех же контуров, что уходят в DXF, раскрой — из той же траектории, что в `.tap`.
 
 three.js r147 лежит в `vendor/` (лицензия MIT, `vendor/LICENSE-three.txt`) и встраивается в файл целиком, поэтому HTML открывается без сети, в том числе на компьютере в цехе.

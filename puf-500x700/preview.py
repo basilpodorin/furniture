@@ -176,7 +176,12 @@ def spec_data(chk, ply_area, stats):
     }
 
 
-def build_preview(out, placed, strokes, stats, chk, ply_area):
+CDN = "https://cdn.jsdelivr.net/npm/three@0.147.0"
+
+
+def build_preview(out, placed, strokes, stats, chk, ply_area, web=None):
+    """out/preview.html — офлайн (three.js внутри файла). web — путь для страницы-Artifact:
+    без собственного каркаса документа, three.js с CDN из списка разрешённых."""
     data = {
         "name": P.NAME, "code": P.CODE,
         "cam": {"tool": P.TOOL_D, "depth": P.CUT_DEPTH, "tab": -(P.T - P.TAB_H), "feed": P.F_CUT,
@@ -186,9 +191,19 @@ def build_preview(out, placed, strokes, stats, chk, ply_area):
     }
     tpl = (HERE / "preview_template.html").read_text(encoding="utf-8")
     js = json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
+    tpl = tpl.replace("@DATA@", js)
+    head, body = tpl.split("<!--@BODY@-->")
+
     three = (HERE / "vendor" / "three.min.js").read_text(encoding="utf-8")
     orbit = (HERE / "vendor" / "OrbitControls.js").read_text(encoding="utf-8")
-    html = (tpl.replace("/*@THREE@*/", three).replace("/*@ORBIT@*/", orbit)
-            .replace("@DATA@", js).replace("@TITLE@", P.NAME))
-    (out / "preview.html").write_text(html, encoding="utf-8")
+    offline = ("<!doctype html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n"
+               "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n"
+               + head + "</head>\n<body>\n"
+               + body.replace("<!--@LIBS@-->", f"<script>{three}</script>\n<script>{orbit}</script>")
+               + "</body>\n</html>\n")
+    (out / "preview.html").write_text(offline, encoding="utf-8")
+    if web:
+        libs = (f'<script src="{CDN}/build/three.min.js"></script>\n'
+                f'<script src="{CDN}/examples/js/controls/OrbitControls.js"></script>')
+        Path(web).write_text(head + body.replace("<!--@LIBS@-->", libs), encoding="utf-8")
     return out / "preview.html"

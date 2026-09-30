@@ -1,116 +1,130 @@
-<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>@TITLE@ — предпросмотр</title>
+<title>Предпросмотр пуфа 500×700</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Unbounded:wght@500;600&display=swap">
 <style>
+/* Раскладка: шапка с вкладками, под ней рабочее поле на всю высоту;
+   панель управления справа, на телефоне — выдвижная снизу. Холодный серый
+   «чертёжный» фон, фанера и ткань «норвежский лосось» — как акценты изделия. */
 :root {
-  --bg: #f5f3ef; --panel: #ffffff; --ink: #1f1d1a; --muted: #6f6a62; --line: #e2ddd4;
-  --accent: #b8623f; --accent-ink: #ffffff; --ok: #2e8b57; --bad: #c0392b; --scene: #f1eee8;
-  --chip: #f0ebe3; --shadow: 0 6px 24px rgba(40, 30, 20, .10);
+  --bg: #eceff1; --surface: #ffffff; --ink: #1c2328; --muted: #5b6870; --line: #d2d9dd;
+  --accent: #b5533e; --accent-ink: #ffffff; --chip: #e4e9ec; --scene: #e2e7ea;
+  --ok: #2c8452; --bad: #b8382a; --warn-bg: #f8e7e3;
+  --shadow: 0 8px 28px rgba(28, 35, 40, .12);
+  --f-display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --f-body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1a18; --panel: #25231f; --ink: #ece8e1; --muted: #a39d93; --line: #3a3732;
-    --accent: #d98361; --accent-ink: #1b1a18; --ok: #5cc28a; --bad: #ef6b5b; --scene: #22201d;
-    --chip: #2f2c27; --shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  :root:not([data-theme="light"]) {
+    --bg: #14191c; --surface: #1d2327; --ink: #e3e8ea; --muted: #94a2a9; --line: #313b41;
+    --accent: #e08a72; --accent-ink: #14191c; --chip: #262e33; --scene: #192024;
+    --ok: #5cc28a; --bad: #f07a6a; --warn-bg: #3a2522; --shadow: 0 8px 28px rgba(0, 0, 0, .4);
+    color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #14191c; --surface: #1d2327; --ink: #e3e8ea; --muted: #94a2a9; --line: #313b41;
+  --accent: #e08a72; --accent-ink: #14191c; --chip: #262e33; --scene: #192024;
+  --ok: #5cc28a; --bad: #f07a6a; --warn-bg: #3a2522; --shadow: 0 8px 28px rgba(0, 0, 0, .4);
+  color-scheme: dark;
+}
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
-  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
-body { display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-header { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--line);
-  background: var(--panel); flex-wrap: wrap; }
-header h1 { font-size: 16px; margin: 0; font-weight: 650; letter-spacing: .1px; }
-header .code { color: var(--muted); font-size: 12px; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 var(--f-body);
+  display: flex; flex-direction: column; overflow: hidden; }
+header { display: flex; align-items: center; gap: 12px 16px; padding: 10px 16px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--line); background: var(--surface); }
+header h1 { font: 600 15px/1.2 var(--f-display); margin: 0; letter-spacing: .2px; text-wrap: balance; }
+header .code { color: var(--muted); font-size: 12px; margin-top: 2px; }
 nav { display: flex; gap: 4px; margin-left: auto; overflow-x: auto; max-width: 100%; }
 nav button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 8px;
-  font: inherit; cursor: pointer; white-space: nowrap; }
+  font: 500 14px var(--f-body); cursor: pointer; white-space: nowrap; }
 nav button.on { background: var(--accent); color: var(--accent-ink); }
 nav button:not(.on):hover { background: var(--chip); color: var(--ink); }
-main { flex: 1; position: relative; min-height: 0; }
-section { position: absolute; inset: 0; display: none; }
-section.on { display: block; }
-.stage { position: absolute; inset: 0; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#err { background: var(--warn-bg); color: var(--ink); border-bottom: 1px solid var(--line); padding: 8px 16px;
+  font-size: 13px; }
+main { flex: 1; position: relative; min-height: 0; margin: 12px 16px 16px; }
+section { position: absolute; inset: 0; }
+.stage { position: absolute; inset: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+  background: var(--scene); }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-.panel { position: absolute; top: 12px; right: 12px; width: 290px; max-height: calc(100% - 24px); overflow: auto;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
-  padding: 12px 14px; }
-.panel h3 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
-  font-weight: 600; }
+.stage .msg { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
+  color: var(--muted); }
+.panel { position: absolute; top: 12px; right: 12px; width: 292px; max-height: calc(100% - 24px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 12px 14px; display: grid; gap: 6px; align-content: start; }
+.panel h3 { margin: 8px 0 0; font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: .7px;
+  color: var(--muted); }
 .panel h3:first-child { margin-top: 0; }
-.row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
-.row label { flex: 1; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 input[type=range] { width: 100%; accent-color: var(--accent); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips button, .btn { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px;
-  padding: 5px 11px; font: inherit; font-size: 13px; cursor: pointer; }
+  padding: 5px 11px; font: 14px var(--f-body); cursor: pointer; }
 .chips button.on { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-.layer { display: flex; align-items: center; gap: 8px; margin: 3px 0; cursor: pointer; user-select: none; }
-.layer i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid rgba(0,0,0,.2); }
+.layer { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.layer i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; border: 1px solid var(--line); }
 .layer input { accent-color: var(--accent); }
-.hint { color: var(--muted); font-size: 12px; margin-top: 10px; }
-.tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 8px; padding: 5px 9px; font-size: 12.5px; box-shadow: var(--shadow); display: none; max-width: 280px;
-  z-index: 5; }
+.hint { color: var(--muted); font-size: 12px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 9px; font-size: 12.5px; box-shadow: var(--shadow); max-width: 280px; z-index: 5; }
 .toggle-panel { display: none; position: absolute; right: 12px; bottom: 12px; z-index: 6; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 13px; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; font-size: 13px; }
 .kv b { font-weight: 500; color: var(--muted); }
-.legend { display: grid; grid-template-columns: 14px 1fr; gap: 3px 8px; font-size: 12.5px; align-items: center; }
+.kv span { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--f-mono); font-size: 12.5px; }
+.legend { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 3px 8px; font-size: 12.5px; align-items: center; }
 .legend i { height: 3px; border-radius: 2px; display: block; }
-.warn { background: color-mix(in srgb, var(--bad) 12%, transparent); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
-  border-radius: 8px; padding: 7px 9px; font-size: 12.5px; margin-top: 10px; }
-.scroll { position: absolute; inset: 0; overflow: auto; padding: 16px; }
-.sheets { max-width: 1200px; margin: 0 auto; display: grid; gap: 18px; }
-.sheets figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.sheets img { width: 100%; display: block; background: #fff; cursor: zoom-in; }
+.warn { background: var(--warn-bg); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font-size: 12.5px; }
+.scroll { position: absolute; inset: 0; overflow: auto; }
+.sheets { max-width: 1200px; margin: 0 auto; display: grid; gap: 16px; }
+.sheets figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.sheets img { width: 100%; max-width: 100%; display: block; background: #ffffff; cursor: zoom-in; }
 .sheets figcaption { padding: 8px 12px; font-size: 13px; color: var(--muted); }
-.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; overflow: auto; z-index: 20; cursor: zoom-out; }
-.lightbox img { display: block; width: 2400px; max-width: none; margin: 0 auto; background: #fff; }
-.spec { max-width: 1100px; margin: 0 auto; }
-.spec h2 { font-size: 15px; margin: 22px 0 8px; }
+.lightbox { position: fixed; inset: 0; background: rgba(10, 14, 16, .88); overflow: auto; z-index: 20; cursor: zoom-out; }
+.lightbox img { display: block; width: 2400px; max-width: none; margin: 0 auto; background: #ffffff; }
+.spec { max-width: 1100px; margin: 0 auto; display: grid; gap: 8px; }
+.spec h2 { font: 600 14px var(--f-display); margin: 14px 0 0; }
 .spec h2:first-child { margin-top: 0; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
 th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; font-size: 12px; }
 tr:last-child td { border-bottom: 0; }
-td.n { text-align: center; }
+td.n { text-align: center; font-variant-numeric: tabular-nums; }
 td:first-child { white-space: nowrap; }
 .check { display: flex; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
 .check:last-child { border-bottom: 0; }
 .check span:first-child { font-weight: 700; }
 .ok { color: var(--ok); } .bad { color: var(--bad); }
 @media (max-width: 760px) {
-  header { padding: 8px 12px; gap: 6px; }
-  header h1 { font-size: 14.5px; }
+  header { padding: 8px 16px; }
   nav { margin-left: 0; width: 100%; }
-  .panel { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-height: 55%; border-radius: 14px 14px 0 0; }
-  .panel.hidden { display: none; }
+  main { margin: 10px 16px 12px; }
+  .panel { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-height: 58%; border-radius: 12px 12px 0 0; }
+  .panel.closed { display: none; }
   .toggle-panel { display: block; }
-  .scroll { padding: 12px; }
 }
 </style>
-</head>
-<body>
+<!--@BODY@-->
 <header>
   <div>
-    <h1>@TITLE@</h1>
+    <h1>Пуф в спальню 500 × 700 × 450</h1>
     <div class="code" id="code"></div>
   </div>
   <nav id="tabs">
-    <button data-tab="3d" class="on">3D</button>
-    <button data-tab="nest">Раскрой и УП</button>
-    <button data-tab="sheets">Листы А3</button>
-    <button data-tab="spec">Спецификация</button>
+    <button id="tab-btn-3d" data-tab="3d" class="on">3D</button>
+    <button id="tab-btn-nest" data-tab="nest">Раскрой и УП</button>
+    <button id="tab-btn-sheets" data-tab="sheets">Листы А3</button>
+    <button id="tab-btn-spec" data-tab="spec">Спецификация</button>
   </nav>
 </header>
+<div id="err" hidden></div>
 <main>
-  <section id="tab-3d" class="on">
-    <div class="stage" id="view3d"></div>
-    <div class="tip" id="tip3d"></div>
+  <section id="tab-3d">
+    <div class="stage" id="view3d"><div class="msg" id="msg3d">Загружается 3D-модель…</div></div>
+    <div class="tip" id="tip3d" hidden></div>
     <button class="btn toggle-panel" data-panel="panel3d">Настройки</button>
     <aside class="panel" id="panel3d">
       <h3>Вид</h3>
@@ -126,36 +140,35 @@ td:first-child { white-space: nowrap; }
         <button data-view="side">Сбоку</button><button data-view="top">Сверху</button>
       </div>
       <h3>Разнос деталей</h3>
-      <input type="range" id="explode" min="0" max="1" step="0.01" value="0">
+      <input type="range" id="explode" min="0" max="1" step="0.01" value="0" aria-label="Разнос деталей">
       <h3>Разрез</h3>
       <div class="chips" id="cutaxis">
         <button data-axis="none" class="on">Нет</button><button data-axis="x">Поперёк</button>
         <button data-axis="y">Вдоль</button>
       </div>
-      <input type="range" id="cutpos" min="-360" max="360" step="1" value="-200" disabled>
+      <input type="range" id="cutpos" min="-360" max="360" step="1" value="-200" disabled aria-label="Положение разреза">
       <h3>Слои</h3>
       <div id="layers"></div>
       <label class="layer"><input type="checkbox" id="ghost"> чехол полупрозрачный</label>
-      <div class="hint">Вращение — левая кнопка / палец, сдвиг — правая / два пальца, масштаб — колесо / щипок.
-        Наведите на деталь — появится её название.</div>
+      <div class="hint">Вращение — левая кнопка или палец, сдвиг — правая кнопка или два пальца, масштаб — колесо
+        или щипок. Наведите на деталь или коснитесь её — появится название.</div>
     </aside>
   </section>
 
-  <section id="tab-nest">
+  <section id="tab-nest" hidden>
     <div class="stage" id="nestwrap"><canvas id="nest"></canvas></div>
-    <div class="tip" id="tipnest"></div>
     <button class="btn toggle-panel" data-panel="panelnest">УП</button>
     <aside class="panel" id="panelnest">
       <h3>Проигрывание УП</h3>
       <div class="row">
         <button class="btn" id="play">▶ Пуск</button>
-        <button class="btn" id="restart">⟲</button>
-        <select id="speed" class="btn">
+        <button class="btn" id="restart">⟲ В начало</button>
+        <select id="speed" class="btn" aria-label="Скорость">
           <option value="20">×20</option><option value="100" selected>×100</option>
           <option value="400">×400</option><option value="2000">×2000</option>
         </select>
       </div>
-      <input type="range" id="progress" min="0" max="1000" step="1" value="1000">
+      <input type="range" id="progress" min="0" max="1000" step="1" value="1000" aria-label="Ход УП">
       <div class="kv" id="nestinfo"></div>
       <h3>Показать</h3>
       <label class="layer"><input type="checkbox" id="showpaths" checked> траектории фрезы</label>
@@ -165,48 +178,66 @@ td:first-child { white-space: nowrap; }
       <div class="legend" id="legend"></div>
       <div class="warn">УП сделана типовым постпроцессором (Mach3 / NcStudio), не цеховым. Перед резкой —
         проверка в симуляторе станка.</div>
-      <div class="hint">Колесо / щипок — масштаб, перетаскивание — сдвиг, двойной щелчок — весь лист.</div>
+      <div class="hint">Колесо или щипок — масштаб, перетаскивание — сдвиг, двойной щелчок — весь лист.</div>
     </aside>
   </section>
 
-  <section id="tab-sheets"><div class="scroll"><div class="sheets" id="sheets"></div></div></section>
-  <section id="tab-spec"><div class="scroll"><div class="spec" id="spec"></div></div></section>
+  <section id="tab-sheets" hidden><div class="scroll"><div class="sheets" id="sheets"></div></div></section>
+  <section id="tab-spec" hidden><div class="scroll"><div class="spec" id="spec"></div></div></section>
 </main>
-<div class="lightbox" id="lightbox"><img alt=""></div>
+<div class="lightbox" id="lightbox" hidden><img alt=""></div>
 
 <script type="application/json" id="data">@DATA@</script>
-<script>/*@THREE@*/</script>
-<script>/*@ORBIT@*/</script>
+<!--@LIBS@-->
 <script>
 "use strict";
-const D = JSON.parse(document.getElementById("data").textContent);
-document.getElementById("code").textContent = D.code + " · предпросмотр пакета для цеха";
+const $ = (id) => document.getElementById(id);
+const showErr = (text) => { const e = $("err"); e.textContent = text; e.hidden = false; };
+window.addEventListener("error", (e) => showErr("Ошибка на странице: " + (e.message || e.type) +
+  ". Остальные вкладки могут работать."));
+const D = JSON.parse($("data").textContent);
+$("code").textContent = D.code + " · предпросмотр пакета для цеха";
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const onTheme = [];
+const themeChanged = () => onTheme.forEach(f => f());
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeChanged);
+new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
 // ------------------------------------------------------------------ вкладки
 const inited = {};
+const TABS = ["3d", "nest", "sheets", "spec"];
 function showTab(name) {
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
-  document.querySelectorAll("main > section").forEach(s => s.classList.toggle("on", s.id === "tab-" + name));
-  if (!inited[name]) { inited[name] = true; ({ "3d": init3d, nest: initNest, sheets: initSheets, spec: initSpec })[name](); }
+  TABS.forEach(t => { $("tab-" + t).hidden = t !== name; });
+  if (!inited[name]) {
+    inited[name] = true;
+    try { ({ "3d": init3d, nest: initNest, sheets: initSheets, spec: initSpec })[name](); }
+    catch (e) { showErr("Не удалось открыть вкладку: " + e.message); }
+  }
   window.dispatchEvent(new Event("resize"));
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
-document.querySelectorAll(".toggle-panel").forEach(b => b.onclick = () =>
-  document.getElementById(b.dataset.panel).classList.toggle("hidden"));
-if (matchMedia("(max-width: 760px)").matches) document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+document.querySelectorAll(".toggle-panel").forEach(b => b.onclick = () => $(b.dataset.panel).classList.toggle("closed"));
+if (matchMedia("(max-width: 760px)").matches) document.querySelectorAll(".panel").forEach(p => p.classList.add("closed"));
 
 // ------------------------------------------------------------------ 3D
 const LAYERS = [
   ["cover", "Чехол (ткань + холкон)", "#c8735e"], ["foam", "ППУ 30 мм", "#f1e19a"],
   ["card", "Картон 3 мм", "#9d9d9d"], ["frame", "Каркас ф15", "#e9cc9f"], ["hw", "Крепёж и опоры", "#6d7177"],
 ];
-const S3 = { objs: [], pick: [], explode: 0, clip: null, axis: "none", ghost: false, vis: {} };
+const S3 = { objs: [], pick: [], explode: 0, clip: null, clips: [], axis: "none", ghost: false, vis: {} };
 LAYERS.forEach(l => S3.vis[l[0]] = true);
 
 function init3d() {
-  const el = document.getElementById("view3d");
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const el = $("view3d"), msg = $("msg3d");
+  if (typeof THREE === "undefined" || !THREE.OrbitControls) {
+    msg.textContent = "Библиотека 3D не загрузилась. Раскрой, листы и спецификация работают.";
+    return;
+  }
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true }); }
+  catch (e) { msg.textContent = "Браузер не дал WebGL, поэтому 3D недоступно. Раскрой, листы и спецификация работают."; return; }
+  msg.remove();
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.localClippingEnabled = true;
   el.appendChild(renderer.domElement);
@@ -218,17 +249,15 @@ function init3d() {
   controls.dampingFactor = 0.12;
   Object.assign(S3, { renderer, scene, camera, controls });
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7d6b, 0.75));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x7d8388, 0.75));
   const key = new THREE.DirectionalLight(0xffffff, 0.75); key.position.set(-900, -1400, 1800); scene.add(key);
   const rim = new THREE.DirectionalLight(0xffffff, 0.35); rim.position.set(1500, 900, 700); scene.add(rim);
-  const grid = new THREE.GridHelper(1600, 16, 0x9c9486, 0xc9c2b6);
+  const grid = new THREE.GridHelper(1600, 16, 0x8e989d, 0xbfc7cb);
   grid.rotation.x = Math.PI / 2; grid.material.transparent = true; grid.material.opacity = 0.45;
   scene.add(grid);
 
   S3.clip = new THREE.Plane(new THREE.Vector3(1, 0, 0), 200);
-  const clips = [];
-  S3.clips = clips;
-
+  const clips = S3.clips;
   const shapeOf = (outer, holes) => {
     const s = new THREE.Shape(outer.map(p => new THREE.Vector2(p[0], p[1])));
     (holes || []).forEach(h => s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p[0], p[1])))));
@@ -270,46 +299,45 @@ function init3d() {
     S3.pick.push(mesh);
   }
 
-  // панель: слои
-  const lay = document.getElementById("layers");
+  const lay = $("layers");
   for (const [id, name, color] of LAYERS) {
     const l = document.createElement("label");
     l.className = "layer";
-    l.innerHTML = `<input type="checkbox" data-layer="${id}" checked><i style="background:${color}"></i>${name}`;
+    l.innerHTML = `<input type="checkbox" id="layer-${id}" data-layer="${id}" checked><i style="background:${color}"></i>${name}`;
     lay.appendChild(l);
   }
   lay.addEventListener("change", e => { S3.vis[e.target.dataset.layer] = e.target.checked; markPreset(); apply3d(); });
-  document.getElementById("ghost").onchange = e => { S3.ghost = e.target.checked; apply3d(); };
-  document.getElementById("explode").oninput = e => { S3.explode = +e.target.value; markPreset(); apply3d(); };
+  $("ghost").onchange = e => { S3.ghost = e.target.checked; apply3d(); };
+  $("explode").oninput = e => { S3.explode = +e.target.value; markPreset(); apply3d(); };
   document.querySelectorAll("#cutaxis button").forEach(b => b.onclick = () => setCut(b.dataset.axis));
-  document.getElementById("cutpos").oninput = e => { S3.clip.constant = -e.target.value; };
+  $("cutpos").oninput = e => { S3.clip.constant = -e.target.value; };
   document.querySelectorAll("#views button").forEach(b => b.onclick = () => setView(b.dataset.view));
   document.querySelectorAll("#presets button").forEach(b => b.onclick = () => preset(b.dataset.preset));
 
-  // подсказка по детали
-  const tip = document.getElementById("tip3d"), ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
+  // название детали под курсором / пальцем
+  const tip = $("tip3d"), ray = new THREE.Raycaster(), v2 = new THREE.Vector2();
   let down = null;
   const pickAt = (ev) => {
-    const r = renderer.domElement.getBoundingClientRect();
+    const r = renderer.domElement.getBoundingClientRect(), host = $("tab-3d").getBoundingClientRect();
     v2.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(v2, camera);
     const hits = ray.intersectObjects(S3.pick.filter(o => o.parent.visible), false)
       .filter(h => !S3.clips.length || S3.clip.distanceToPoint(h.point) >= 0);
-    if (!hits.length) { tip.style.display = "none"; return; }
+    if (!hits.length) { tip.hidden = true; return; }
     tip.textContent = hits[0].object.userData.label;
-    tip.style.display = "block";
-    const x = Math.min(ev.clientX - r.left + 14, r.width - tip.offsetWidth - 8);
-    tip.style.left = x + "px"; tip.style.top = (ev.clientY - r.top + 14) + "px";
+    tip.hidden = false;
+    const x = Math.min(ev.clientX - host.left + 14, host.width - tip.offsetWidth - 8);
+    tip.style.left = Math.max(4, x) + "px"; tip.style.top = (ev.clientY - host.top + 14) + "px";
   };
-  renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; tip.style.display = "none"; });
+  renderer.domElement.addEventListener("pointerdown", e => { down = [e.clientX, e.clientY]; tip.hidden = true; });
   renderer.domElement.addEventListener("pointermove", e => { if (e.pointerType === "mouse" && !e.buttons) pickAt(e); });
   renderer.domElement.addEventListener("pointerup", e => {
     if (down && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 5 && e.pointerType !== "mouse") {
-      pickAt(e); clearTimeout(S3.tipT); S3.tipT = setTimeout(() => tip.style.display = "none", 2500);
+      pickAt(e); clearTimeout(S3.tipT); S3.tipT = setTimeout(() => { tip.hidden = true; }, 2500);
     }
     down = null;
   });
-  renderer.domElement.addEventListener("pointerleave", () => tip.style.display = "none");
+  renderer.domElement.addEventListener("pointerleave", () => { tip.hidden = true; });
 
   const resize = () => {
     const w = el.clientWidth, h = el.clientHeight;
@@ -319,7 +347,7 @@ function init3d() {
   };
   window.addEventListener("resize", resize);
   const theme = () => { scene.background = new THREE.Color(css("--scene")); };
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme);
+  onTheme.push(theme);
   theme(); resize(); apply3d(); setView("iso");
   (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
 }
@@ -332,7 +360,7 @@ function sweepGeo(path, prof) {
     const a = path[(i - 1 + n) % n], p = path[i], b = path[(i + 1) % n];
     const t1 = unit(p[0] - a[0], p[1] - a[1]), t2 = unit(b[0] - p[0], b[1] - p[1]);
     const t = unit(t1[0] + t2[0], t1[1] + t2[1]);
-    const k = 1 / Math.max(0.5, t[0] * t1[0] + t[1] * t1[1]);      // сохранить толщину в изломах
+    const k = 1 / Math.max(0.5, t[0] * t1[0] + t[1] * t1[1]);
     for (const [d, z] of prof) pos.push(p[0] + t[1] * d * k, p[1] - t[0] * d * k, z);
   }
   for (let i = 0; i < n; i++) for (let j = 0; j < m; j++) {
@@ -363,7 +391,7 @@ function apply3d() {
 function setCut(axis) {
   S3.axis = axis;
   document.querySelectorAll("#cutaxis button").forEach(b => b.classList.toggle("on", b.dataset.axis === axis));
-  const r = document.getElementById("cutpos");
+  const r = $("cutpos");
   S3.clips.length = 0;
   r.disabled = axis === "none";
   // остаётся дальняя от камеры часть — срез смотрит на зрителя
@@ -373,6 +401,7 @@ function setCut(axis) {
 }
 
 function setView(v) {
+  if (!S3.camera) return;
   const t = new THREE.Vector3(0, 0, 215);
   const dirs = { iso: [-0.95, -1.35, 0.95], front: [0, -1, 0.02], side: [1, 0, 0.02], top: [0, -0.02, 1],
     cut: [-1.5, -0.62, 0.5] };
@@ -394,7 +423,7 @@ function preset(name) {
   LAYERS.forEach(([id]) => { S3.vis[id] = on.includes(id); });
   document.querySelectorAll("#layers input").forEach(i => i.checked = S3.vis[i.dataset.layer]);
   S3.explode = name === "exploded" ? 1 : 0;
-  document.getElementById("explode").value = S3.explode;
+  $("explode").value = S3.explode;
   setCut(name === "inside" ? "x" : "none");
   apply3d(); setView(name === "inside" ? "cut" : "iso"); markPreset(name);
 }
@@ -405,8 +434,8 @@ const GROUPS = { mark: "метки опор", pocket: "пазы (выборка)
 const N = { s: 1, ox: 0, oy: 0, n: 0, total: 0, playing: false };
 
 function initNest() {
-  const cv = document.getElementById("nest"), ctx = cv.getContext("2d"), wrap = document.getElementById("nestwrap");
-  const C = D.cam, depth = -C.depth, tabZ = C.tab;
+  const cv = $("nest"), ctx = cv.getContext("2d"), wrap = $("nestwrap");
+  const C = D.cam, tabZ = C.tab;
   const passes = [...new Set(D.strokes.filter(s => s.p.length > 3)
       .flatMap(s => { const z = []; for (let i = 2; i < s.p.length; i += 3) z.push(s.p[i]); return z; }))]
     .filter(z => z < 0 && Math.abs(z - tabZ) > 1e-6 && z > -C.depth - 0.01).sort((a, b) => b - a);
@@ -414,17 +443,15 @@ function initNest() {
   const colorOf = (z) => {
     if (Math.abs(z - tabZ) < 1e-6) return "#2e9d5b";
     const i = passes.findIndex(p => Math.abs(p - z) < 1e-6);
-    return i < 0 ? "#888" : PASS_COL[Math.min(i + PASS_COL.length - passes.length, PASS_COL.length - 1)];
+    return i < 0 ? "#888888" : PASS_COL[Math.min(i + PASS_COL.length - passes.length, PASS_COL.length - 1)];
   };
-  // легенда
-  const lg = document.getElementById("legend");
+  const lg = $("legend");
   passes.forEach((p, i) => lg.insertAdjacentHTML("beforeend",
     `<i style="background:${colorOf(p)}"></i><span>проход ${i + 1}, Z ${p.toFixed(2)}</span>`));
   lg.insertAdjacentHTML("beforeend", `<i style="background:#2e9d5b"></i><span>над перемычкой, Z ${tabZ}</span>` +
     `<i style="background:#2a7a2a;height:8px;width:8px;border-radius:50%"></i><span>метки опор, Z −2</span>` +
     `<i style="border-top:2px dashed #8a8a8a;height:0"></i><span>холостой ход</span>`);
 
-  // точки и время
   const idx = []; let t = 0, prev = [0, 0];
   const RAPID = 8000;
   D.strokes.forEach((s, si) => {
@@ -437,14 +464,14 @@ function initNest() {
     prev = [p[p.length - 3], p[p.length - 2]];
   });
   N.total = idx.length; N.n = N.total;
-  const prog = document.getElementById("progress");
+  const prog = $("progress");
   prog.max = N.total; prog.value = N.total;
 
   const fit = () => {
     const w = wrap.clientWidth, h = wrap.clientHeight, sw = D.nest.sheet[0], sh = D.nest.sheet[1];
-    const panel = document.getElementById("panelnest");
-    const right = (panel.offsetParent && innerWidth > 760) ? panel.offsetWidth + 24 : 0;
-    N.s = Math.min((w - right - 40) / sw, (h - 40) / sh);
+    const panel = $("panelnest");
+    const right = (!panel.classList.contains("closed") && innerWidth > 760) ? panel.offsetWidth + 24 : 0;
+    N.s = Math.max(0.05, Math.min((w - right - 32) / sw, (h - 32) / sh));
     N.ox = (w - right - sw * N.s) / 2; N.oy = (h + sh * N.s) / 2;
   };
   const X = (x) => N.ox + x * N.s, Y = (y) => N.oy - y * N.s;
@@ -452,11 +479,12 @@ function initNest() {
 
   function draw() {
     const dpr = Math.min(devicePixelRatio, 2), w = wrap.clientWidth, h = wrap.clientHeight;
-    if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+    if (!w || !h) return;
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = css("--scene"); ctx.fillRect(0, 0, w, h);
     const [sw, sh] = D.nest.sheet;
-    ctx.fillStyle = "#f7f1e6"; ctx.strokeStyle = "#8b7a60"; ctx.lineWidth = 1;
+    ctx.fillStyle = "#f5efe2"; ctx.strokeStyle = "#8b7a60"; ctx.lineWidth = 1;
     ctx.fillRect(X(0), Y(sh), sw * N.s, sh * N.s); ctx.strokeRect(X(0), Y(sh), sw * N.s, sh * N.s);
     for (const p of D.nest.parts) {
       const pa = path(p.outer); p.holes.forEach(hh => pa.addPath(path(hh)));
@@ -464,22 +492,21 @@ function initNest() {
       ctx.strokeStyle = "#7a5a3a"; ctx.lineWidth = 0.8; ctx.stroke(pa);
       p.marks.forEach(m => { ctx.fillStyle = "#2a7a2a"; ctx.beginPath(); ctx.arc(X(m[0]), Y(m[1]), Math.max(2, 3 * N.s), 0, 7); ctx.fill(); });
     }
-    if (document.getElementById("showpaths").checked) drawPaths();
-    if (document.getElementById("showlabels").checked) {
-      ctx.font = `600 ${Math.max(10, Math.min(18, 34 * N.s))}px system-ui, sans-serif`;
+    if ($("showpaths").checked) drawPaths();
+    if ($("showlabels").checked) {
+      ctx.font = `600 ${Math.max(10, Math.min(18, 34 * N.s))}px "Golos Text", system-ui, sans-serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       for (const p of D.nest.parts) {
-        const lx = p.lx, ly = p.ly, txt = p.label;
-        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(247,241,230,.9)"; ctx.strokeText(txt, X(lx), Y(ly));
-        ctx.fillStyle = "#3b2a18"; ctx.fillText(txt, X(lx), Y(ly));
+        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(245,239,226,.9)"; ctx.strokeText(p.label, X(p.lx), Y(p.ly));
+        ctx.fillStyle = "#3b2a18"; ctx.fillText(p.label, X(p.lx), Y(p.ly));
       }
     }
     info();
   }
 
   function drawPaths() {
-    const rapid = document.getElementById("showrapid").checked;
-    let left = N.n, prev = [0, 0], last = null;
+    const rapid = $("showrapid").checked;
+    let left = N.n, prevEnd = [0, 0], last = null;
     ctx.lineCap = "round"; ctx.lineJoin = "round";
     for (const s of D.strokes) {
       if (left <= 0) break;
@@ -487,13 +514,13 @@ function initNest() {
       left -= cnt;
       if (rapid) {
         ctx.setLineDash([4, 4]); ctx.strokeStyle = "#8a8a8a"; ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.moveTo(X(prev[0]), Y(prev[1])); ctx.lineTo(X(p[0]), Y(p[1])); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(X(prevEnd[0]), Y(prevEnd[1])); ctx.lineTo(X(p[0]), Y(p[1])); ctx.stroke();
         ctx.setLineDash([]);
       }
       if (p.length === 3) {
         ctx.fillStyle = "#2a7a2a"; ctx.beginPath(); ctx.arc(X(p[0]), Y(p[1]), Math.max(2.5, 3.2 * N.s), 0, 7); ctx.fill();
       }
-      ctx.lineWidth = Math.max(1, 1.2 * N.s * 2);
+      ctx.lineWidth = Math.max(1, 2.4 * N.s);
       let col = null;
       for (let i = 3; i < cnt * 3; i += 3) {
         const c = colorOf(Math.max(p[i + 2], p[i - 1]));
@@ -501,8 +528,8 @@ function initNest() {
         ctx.lineTo(X(p[i]), Y(p[i + 1]));
       }
       if (col) ctx.stroke();
-      last = [p[(cnt - 1) * 3], p[(cnt - 1) * 3 + 1], p[(cnt - 1) * 3 + 2]];
-      prev = [p[p.length - 3], p[p.length - 2]];
+      last = [p[(cnt - 1) * 3], p[(cnt - 1) * 3 + 1]];
+      prevEnd = [p[p.length - 3], p[p.length - 2]];
     }
     if (last && N.n < N.total) {
       ctx.strokeStyle = "#1f3f7a"; ctx.lineWidth = 2; ctx.fillStyle = "rgba(31,63,122,.25)";
@@ -514,20 +541,20 @@ function initNest() {
   function info() {
     const k = Math.max(0, Math.min(N.total - 1, N.n - 1)), [si, pi, tt] = idx[k], s = D.strokes[si];
     const z = s.p[pi * 3 + 2];
-    document.getElementById("nestinfo").innerHTML =
+    $("nestinfo").innerHTML =
       `<b>Операция</b><span>${s.l}</span><b>Группа</b><span>${GROUPS[s.g] || s.g}</span>` +
-      `<b>Z</b><span>${z.toFixed(2)}</span><b>По траектории</b><span>${mmss(tt)} из ${mmss(idx[N.total - 1][2])}</span>` +
+      `<b>Z</b><span class="mono">${z.toFixed(2)}</span>` +
+      `<b>По траектории</b><span class="mono">${mmss(tt)} из ${mmss(idx[N.total - 1][2])}</span>` +
       `<b>Готово</b><span>${(100 * N.n / N.total).toFixed(1)}% · ${si + 1} / ${D.strokes.length} операций</span>` +
       `<b>Всего</b><span>${D.cam.stats.cut_m} м реза, фреза Ø${C.tool}</span>`;
   }
 
-  // проигрывание
-  const playBtn = document.getElementById("play");
+  const playBtn = $("play");
   let lastT = 0;
   function tick(ts) {
     if (!N.playing) return;
     const dt = lastT ? (ts - lastT) / 1000 : 0; lastT = ts;
-    const k = Math.max(0, N.n - 1), target = idx[k][2] + dt * +document.getElementById("speed").value;
+    const k = Math.max(0, N.n - 1), target = idx[k][2] + dt * +$("speed").value;
     let n = N.n;
     while (n < N.total && idx[n][2] <= target) n++;
     N.n = Math.max(n, N.n + 1);
@@ -540,11 +567,11 @@ function initNest() {
     if (N.n >= N.total) N.n = 0;
     N.playing = true; lastT = 0; playBtn.textContent = "❚❚ Пауза"; requestAnimationFrame(tick);
   };
-  document.getElementById("restart").onclick = () => { N.n = 0; prog.value = 0; draw(); };
+  $("restart").onclick = () => { N.n = 0; prog.value = 0; draw(); };
   prog.oninput = () => { N.n = +prog.value; draw(); };
-  ["showpaths", "showrapid", "showlabels"].forEach(id => document.getElementById(id).onchange = draw);
+  ["showpaths", "showrapid", "showlabels"].forEach(id => $(id).onchange = draw);
+  onTheme.push(draw);
 
-  // масштаб и сдвиг
   const ptrs = new Map(); let pinch = null;
   const zoomAt = (mx, my, f) => { N.ox = mx - (mx - N.ox) * f; N.oy = my - (my - N.oy) * f; N.s *= f; draw(); };
   cv.addEventListener("wheel", e => { e.preventDefault(); const r = cv.getBoundingClientRect();
@@ -564,20 +591,20 @@ function initNest() {
   const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; };
   cv.addEventListener("pointerup", up); cv.addEventListener("pointercancel", up);
   cv.addEventListener("dblclick", () => { fit(); draw(); });
-  window.addEventListener("resize", () => { if (document.getElementById("tab-nest").classList.contains("on")) { fit(); draw(); } });
+  window.addEventListener("resize", () => { if (!$("tab-nest").hidden) { fit(); draw(); } });
   fit(); draw();
 }
 
 // ------------------------------------------------------------------ листы
 function initSheets() {
-  const box = document.getElementById("sheets"), lb = document.getElementById("lightbox");
+  const box = $("sheets"), lb = $("lightbox");
   for (const s of D.sheets) {
     const f = document.createElement("figure");
-    f.innerHTML = `<img alt="${s.title}" src="${s.src}"><figcaption>${s.title}</figcaption>`;
-    f.querySelector("img").onclick = () => { lb.querySelector("img").src = s.src; lb.style.display = "block"; };
+    f.innerHTML = `<img alt="${s.title}" src="${s.src}" loading="lazy"><figcaption>${s.title}</figcaption>`;
+    f.querySelector("img").onclick = () => { lb.querySelector("img").src = s.src; lb.hidden = false; };
     box.appendChild(f);
   }
-  lb.onclick = () => { lb.style.display = "none"; };
+  lb.onclick = () => { lb.hidden = true; };
 }
 
 // ------------------------------------------------------------------ спецификация
@@ -587,7 +614,7 @@ function initSpec() {
     (head ? `<thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead>` : "") + `<tbody>` +
     rows.map(r => `<tr>${r.map((c, i) => `<td${num.includes(i) ? ' class="n"' : ""}>${esc(c)}</td>`).join("")}</tr>`).join("") + "</tbody></table></div>";
   const okN = S.checks.filter(c => c[0]).length;
-  document.getElementById("spec").innerHTML =
+  $("spec").innerHTML =
     `<h2>Кратко</h2>` + table(null, S.facts) +
     `<h2>Каркас — фанера ф15</h2>` + table(["Дет.", "Наименование", "Модуль", "Шт", "Габарит"], S.frame, [3]) +
     `<h2>Мягкая часть</h2>` + table(["Дет.", "Наименование", "Материал", "Шт", "Размер", "Примечание"], S.soft, [3]) +
@@ -597,7 +624,5 @@ function initSpec() {
     `</div>`;
 }
 
-showTab("3d");
+showTab(TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "3d");
 </script>
-</body>
-</html>
