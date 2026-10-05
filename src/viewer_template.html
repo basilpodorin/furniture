@@ -1,0 +1,207 @@
+<title>Стол Basil — просмотр</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: чертёжный стол — шапка с вкладками, под ней сцена 3D или сетка шаблонов 1:1-контуров */
+:root {
+  --bg: #eceff2;
+  --panel: #f9fafb;
+  --fg: #1b2530;
+  --muted: #5c6874;
+  --line: #c9d1d8;
+  --accent: #1f5fbf;
+  --stage: #dfe5ea;
+  --grid: #b9c3cc;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171c; --panel: #1a2128; --fg: #e4e9ee; --muted: #93a0ac; --line: #2f3a44;
+    --accent: #6ea8ff; --stage: #0d1115; --grid: #2a343d; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #1a2128; --fg: #e4e9ee; --muted: #93a0ac; --line: #2f3a44;
+  --accent: #6ea8ff; --stage: #0d1115; --grid: #2a343d; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); padding-inline: 16px; padding-block: 20px 32px; }
+.wrap { max-width: 1180px; margin-inline: auto; display: flex; flex-direction: column; gap: 16px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+h1 { margin: 0; font-size: 1.6rem; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-family: var(--font-mono); font-size: 0.8rem; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { font: inherit; font-weight: 500; background: none; border: 0; color: var(--muted); padding: 10px 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tabs button:focus-visible, .views button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stagebox { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+#stage { display: block; width: 100%; height: min(68vh, 620px); min-height: 320px; touch-action: none; cursor: grab; }
+.views { position: absolute; left: 12px; top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+.views button { font: inherit; font-size: 0.8rem; font-family: var(--font-mono); color: var(--fg); background: var(--panel); border: 1px solid var(--line); padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+.views button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.dims { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.dims div { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+.dims dt { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.dims dd { margin: 2px 0 0; font-family: var(--font-mono); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 0.85rem; line-height: 1.5; max-width: 70ch; margin: 0; }
+.note b { color: var(--fg); font-weight: 600; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.tpl { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px 14px; min-width: 0; }
+.tpl .draw { background: var(--stage); border-radius: 4px; padding: 10px; height: 170px; display: flex; align-items: center; justify-content: center; }
+.tpl svg { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+.tpl .cut { fill: none; stroke: var(--accent); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.tpl h3 { margin: 12px 0 4px; font-size: 0.95rem; font-weight: 600; text-wrap: balance; }
+.meta { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-family: var(--font-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+[hidden] { display: none !important; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Стол Basil</h1>
+    <span class="sub">3D-модель и контуры шаблонов</span>
+  </header>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-model" aria-selected="true" aria-controls="p-model">Модель</button>
+    <button role="tab" id="tab-tpl" aria-selected="false" aria-controls="p-tpl">Шаблоны</button>
+  </div>
+
+  <section id="p-model" role="tabpanel" aria-labelledby="tab-model" style="display:flex;flex-direction:column;gap:12px">
+    <div class="stagebox">
+      <canvas id="stage" aria-label="3D-модель стола, вращайте мышью или пальцем"></canvas>
+      <div class="views" id="views">
+        <button data-v="iso" aria-pressed="true">Общий вид</button>
+        <button data-v="top" aria-pressed="false">Сверху</button>
+        <button data-v="front" aria-pressed="false">Спереди</button>
+        <button data-v="side" aria-pressed="false">Сбоку</button>
+        <button data-v="wire" aria-pressed="false">Каркас</button>
+      </div>
+    </div>
+    <dl class="dims" id="dims"></dl>
+    <p class="note"><b>Файл STL — вариант стола длиной 2300 мм.</b> Шаблоны и раскладка на листы сделаны под 2500×1000, как в карте сборки. Модель нужна для оценки формы и конструкции. Вращение: перетаскивание, масштаб: колесо или щипок, сдвиг: правая кнопка.</p>
+  </section>
+
+  <section id="p-tpl" role="tabpanel" aria-labelledby="tab-tpl" hidden style="display:flex;flex-direction:column;gap:12px">
+    <p class="note">Контуры всех шаблонов, каждый в своём масштабе. Точные файлы 1:1 лежат в архиве: DXF для станка и PDF для печати. Столешница и подстолье показаны половинами: шаблон переворачивают для второго торца.</p>
+    <div class="grid">
+__TEMPLATES__
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+<script>
+(function () {
+  var STL = "__STL_B64__";
+
+  // вкладки
+  var tabs = { model: [document.getElementById("tab-model"), document.getElementById("p-model")],
+               tpl: [document.getElementById("tab-tpl"), document.getElementById("p-tpl")] };
+  function show(k) {
+    Object.keys(tabs).forEach(function (n) {
+      var on = n === k;
+      tabs[n][0].setAttribute("aria-selected", on);
+      tabs[n][1].hidden = !on;
+    });
+    if (k === "model") resize();
+    try { location.hash = k; } catch (e) {}
+  }
+  tabs.model[0].onclick = function () { show("model"); };
+  tabs.tpl[0].onclick = function () { show("tpl"); };
+  if (location.hash === "#tpl") show("tpl");
+
+  // сцена
+  var canvas = document.getElementById("stage");
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(35, 1, 10, 20000);
+  var controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 0.75));
+  var sun = new THREE.DirectionalLight(0xffffff, 0.8);
+  sun.position.set(-1, 2, 1.2);
+  scene.add(sun);
+
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  var gridHelper;
+  function applyTheme() {
+    scene.background = new THREE.Color(css("--stage"));
+    if (gridHelper) {
+      var c = new THREE.Color(css("--grid"));
+      gridHelper.material.color = c;
+    }
+  }
+
+  var geo = new THREE.STLLoader().parse(Uint8Array.from(atob(STL), function (c) { return c.charCodeAt(0); }).buffer);
+  geo.computeBoundingBox();
+  var bb = geo.boundingBox, ctr = new THREE.Vector3();
+  bb.getCenter(ctr);
+  geo.translate(-ctr.x, -bb.min.y, -ctr.z);
+  geo.computeVertexNormals();
+  var mat = new THREE.MeshStandardMaterial({ color: 0xc89a62, roughness: 0.75, metalness: 0.0, side: THREE.DoubleSide, flatShading: true });
+  var mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  var size = new THREE.Vector3();
+  bb.getSize(size);
+
+  gridHelper = new THREE.GridHelper(Math.ceil(Math.max(size.x, size.z) * 1.6 / 100) * 100, Math.ceil(Math.max(size.x, size.z) * 1.6 / 100), 0x888888, 0x888888);
+  gridHelper.material.transparent = true; gridHelper.material.opacity = 0.7;
+  scene.add(gridHelper);
+  applyTheme();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  var R = Math.max(size.x, size.y, size.z);
+  var mid = new THREE.Vector3(0, size.y / 2, 0);
+  var presets = {
+    iso: [0.95, 0.72, 1.15],
+    top: [0, 2.0, 0.001],
+    front: [0, 0.05, 2.1],     // смотрим вдоль короткой стороны (торец)
+    side: [2.2, 0.05, 0]       // смотрим на длинную сторону
+  };
+  function setView(k) {
+    var p = presets[k];
+    camera.position.set(mid.x + p[0] * R * 1.15, mid.y + p[1] * R * 1.15, mid.z + p[2] * R * 1.15);
+    controls.target.copy(mid);
+    controls.update();
+  }
+  setView("iso");
+
+  var btns = document.querySelectorAll("#views button");
+  Array.prototype.forEach.call(btns, function (b) {
+    b.onclick = function () {
+      var v = b.getAttribute("data-v");
+      if (v === "wire") {
+        mat.wireframe = !mat.wireframe;
+        b.setAttribute("aria-pressed", mat.wireframe);
+        return;
+      }
+      Array.prototype.forEach.call(btns, function (x) {
+        if (x.getAttribute("data-v") !== "wire") x.setAttribute("aria-pressed", x === b);
+      });
+      setView(v);
+    };
+  });
+
+  function resize() {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+  (function loop() { requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+
+  // габариты
+  function f(v) { return Math.round(v).toLocaleString("ru-RU") + " мм"; }
+  document.getElementById("dims").innerHTML =
+    "<div><dt>Длина</dt><dd>" + f(size.z) + "</dd></div>" +
+    "<div><dt>Ширина</dt><dd>" + f(size.x) + "</dd></div>" +
+    "<div><dt>Высота</dt><dd>" + f(size.y) + "</dd></div>" +
+    "<div><dt>Треугольников</dt><dd>" + (geo.attributes.position.count / 3).toLocaleString("ru-RU") + "</dd></div>";
+})();
+</script>
