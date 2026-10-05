@@ -253,7 +253,7 @@ def hub() -> Part:
     verts = chain(ents, tol=0.1)
     if area(verts) < 0:
         verts = _reverse(verts)
-    return Part("hub", "Узел-«звезда»", "4 шт. (по сборке, уточнить)", verts,
+    return Part("hub", "Узел-«звезда»", "4 шт.", verts,
                 faces=[Face((-35.0, 0.0), (35.0, 0.0), "грань 1"),
                        Face((70.0, -74.96), (35.0, -135.58), "грань 2"),
                        Face((-35.0, -135.58), (-70.0, -74.96), "грань 3")],
