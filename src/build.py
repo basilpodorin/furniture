@@ -21,7 +21,9 @@ SHEET_W, SHEET_H = 2440.0, 1220.0      # лист МДФ/фанеры, мм
 MARGIN, GAP = 10.0, 15.0
 MARK_LEN = 30.0                        # длина метки центра паза от грани внутрь, мм
 
-SLOT_NOTE = "пазы 10x30, глубина 21, симметрично от центра грани"
+SLOT_W, SLOT_PITCH, SLOT_DEPTH, SLOT_LEN = 10.0, 20.0, 21.0, 30.0
+SLOT_NOTE = ("2 паза %gx%g (30 — по толщине 70, по центру), глубина %g, шаг %g между центрами, "
+             "симметрично от центра грани" % (SLOT_W, SLOT_LEN, SLOT_DEPTH, SLOT_PITCH))
 
 
 def poly(verts):
@@ -39,6 +41,21 @@ def face_marks(part):
         if not pl.contains(Point(mx + n[0] * 1.0, my + n[1] * 1.0)):
             n = (-n[0], -n[1])
         res.append(((mx, my), (mx + n[0] * MARK_LEN, my + n[1] * MARK_LEN), f.name))
+    return res
+
+
+def pockets(part):
+    """Контуры двух пазов на каждой торцевой грани в плане: прямоугольники 10 x 21 внутрь детали."""
+    res = []
+    for (m, e, _), f in zip(face_marks(part), part.faces):
+        ux, uy = (f.q[0] - f.p[0]) / f.length, (f.q[1] - f.p[1]) / f.length
+        nx, ny = (e[0] - m[0]) / MARK_LEN, (e[1] - m[1]) / MARK_LEN
+        for sgn in (-1, 1):
+            cx, cy = m[0] + ux * sgn * SLOT_PITCH / 2, m[1] + uy * sgn * SLOT_PITCH / 2
+            h = SLOT_W / 2
+            res.append([(cx - ux * h, cy - uy * h), (cx + ux * h, cy + uy * h),
+                        (cx + ux * h + nx * SLOT_DEPTH, cy + uy * h + ny * SLOT_DEPTH),
+                        (cx - ux * h + nx * SLOT_DEPTH, cy - uy * h + ny * SLOT_DEPTH)])
     return res
 
 
@@ -79,6 +96,8 @@ def draw_part(msp, part, dx=0.0, dy=0.0, label_dy=-8.0):
         msp.add_line((a[0] + dx, a[1] + dy), (b[0] + dx, b[1] + dy), dxfattribs={"layer": "MARK"})
         msp.add_text(name, height=4, dxfattribs={"layer": "MARK"}).set_placement(
             (b[0] + dx + 2, b[1] + dy + 2))
+    for rect in pockets(part):
+        msp.add_lwpolyline([(x + dx, y + dy) for x, y in rect], close=True, dxfattribs={"layer": "MARK"})
     for a, b in half_marks(part):
         msp.add_line((a[0] + dx, a[1] + dy), (b[0] + dx, b[1] + dy), dxfattribs={"layer": "MARK"})
     x0, y0, x1, y1 = part.bbox()
@@ -96,7 +115,7 @@ def write_part_dxf(part):
     if part.note:
         msp.add_text(part.note, height=5, dxfattribs={"layer": "TEXT"}).set_placement((0, -52))
     if part.faces:
-        msp.add_text("Метки MARK: центр торцевой грани; " + SLOT_NOTE, height=5,
+        msp.add_text("Слой MARK: центр грани и пазы в плане. " + SLOT_NOTE, height=5,
                      dxfattribs={"layer": "TEXT"}).set_placement((0, -62))
     path = os.path.join(OUT, "dxf", part.key + ".dxf")
     doc.saveas(path)
@@ -156,6 +175,9 @@ def draw_outline(ax, part, lw=1.0):
     for a, b, name in face_marks(part):
         ax.plot([a[0], b[0]], [a[1], b[1]], color="tab:blue", lw=0.8)
         ax.text(b[0], b[1], " " + name, color="tab:blue", fontsize=6)
+    for rect in pockets(part):
+        xs, ys = zip(*(rect + [rect[0]]))
+        ax.plot(xs, ys, color="tab:blue", lw=0.8)
     for a, b in half_marks(part):
         ax.plot([a[0], b[0]], [a[1], b[1]], color="tab:blue", lw=0.8)
 
@@ -175,7 +197,7 @@ def overview_page(pdf, part):
     if part.note:
         lines.append(part.note)
     if part.faces:
-        lines.append("Синие метки — центр торцевой грани (" + SLOT_NOTE + ").")
+        lines.append("Синее — центр торцевой грани и пазы под ламели: " + SLOT_NOTE + ".")
     fig.text(PAD / A4[0], 1 - 12 / A4[1], lines[0], fontsize=14, weight="bold", va="top")
     fig.text(PAD / A4[0], 40 / A4[1], "\n".join(lines[1:]), fontsize=8, va="top")
     pdf.savefig(fig)
