@@ -66,6 +66,8 @@ class Part:
     verts: list  # [(x, y, bulge)], замкнутый контур
     faces: list = field(default_factory=list)
     note: str = ""
+    holes: list = field(default_factory=list)   # внутренние вырезы (контуры в формате verts)
+    marks: list = field(default_factory=list)   # линии разметки [((x0, y0), (x1, y1))]
 
     def bbox(self):
         pts = sample(self.verts)
@@ -301,6 +303,25 @@ def subplate_half() -> Part:
                      "Прямая кромка шаблона = поперечная осевая линия заготовки. Обработать оба торца, переворачивая шаблон.")
 
 
+def mortise_jig(pitch=20.0, slot_w=10.0, slot_len=30.0) -> Part:
+    """Кондуктор для торцевых пазов: плита 100x100, два окна-паза, метки центра.
+    Центр кондуктора совмещают с центром торцевой грани (метка на шаблоне детали)."""
+    S = 100.0
+    c = S / 2
+    r = slot_w / 2
+    holes = []
+    for sgn in (-1, 1):
+        cx = c + sgn * pitch / 2
+        holes.append([(cx + r, c - slot_len / 2 + r, 0.0), (cx + r, c + slot_len / 2 - r, 1.0),
+                      (cx - r, c + slot_len / 2 - r, 0.0), (cx - r, c - slot_len / 2 + r, 1.0)])
+    outer = [(0.0, 0.0, 0.0), (S, 0.0, 0.0), (S, S, 0.0), (0.0, S, 0.0)]
+    a, b = c - 35, c + 35   # контур торца 70x70 для совмещения
+    marks = [((a, a), (b, a)), ((b, a), (b, b)), ((b, b), (a, b)), ((a, b), (a, a)),
+             ((c, 0.0), (c, 12.0)), ((c, S - 12.0), (c, S)), ((0.0, c), (12.0, c)), ((S - 12.0, c), (S, c))]
+    return Part("mortise_jig", "Кондуктор торцевых пазов (плита 100x100)", "1 шт.", outer, holes=holes, marks=marks,
+                note="Окна 10x30 (шаг 20) — под фрезу/направляющую. Метки по краям — на центр грани и ось толщины 70.")
+
+
 def _reverse(verts):
     """Обращение направления обхода контура с корректным переносом bulge."""
     n = len(verts)
@@ -313,4 +334,4 @@ def _reverse(verts):
 
 
 def all_parts():
-    return [tabletop_half(), subplate_half(), leg(), upper(), lower(), hub()]
+    return [tabletop_half(), subplate_half(), leg(), upper(), lower(), hub(), mortise_jig()]

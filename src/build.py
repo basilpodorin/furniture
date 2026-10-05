@@ -98,8 +98,11 @@ def draw_part(msp, part, dx=0.0, dy=0.0, label_dy=-8.0):
             (b[0] + dx + 2, b[1] + dy + 2))
     for rect in pockets(part):
         msp.add_lwpolyline([(x + dx, y + dy) for x, y in rect], close=True, dxfattribs={"layer": "MARK"})
-    for a, b in half_marks(part):
+    for a, b in half_marks(part) + part.marks:
         msp.add_line((a[0] + dx, a[1] + dy), (b[0] + dx, b[1] + dy), dxfattribs={"layer": "MARK"})
+    for hole in part.holes:
+        msp.add_lwpolyline([(x, y, 0, 0, bl) for x, y, bl in g.transform(hole, dx=dx, dy=dy)],
+                           format="xyseb", close=True, dxfattribs={"layer": "CUT"})
     x0, y0, x1, y1 = part.bbox()
     ty = y0 + dy + label_dy
     for i, line in enumerate(label_lines(part)):
@@ -152,7 +155,8 @@ def nest():
         (P["lower"], sx, SHEET_H - MARGIN - 330),
         (P["hub"], sx + 255.0 + GAP + 40, SHEET_H - MARGIN - 330 - 40),
     ]
-    sheets["sheet2_subplate_half"] = [(P["subplate_half"], MARGIN, MARGIN + 60)]
+    sheets["sheet2_subplate_half"] = [(P["subplate_half"], MARGIN, MARGIN + 60),
+                                      (P["mortise_jig"], MARGIN + 1225.0 + 40, MARGIN + 60)]
     return {n: write_sheet(n, pl) for n, pl in sheets.items()}
 
 
@@ -178,7 +182,11 @@ def draw_outline(ax, part, lw=1.0):
     for rect in pockets(part):
         xs, ys = zip(*(rect + [rect[0]]))
         ax.plot(xs, ys, color="tab:blue", lw=0.8)
-    for a, b in half_marks(part):
+    for hole in part.holes:
+        pts = g.sample(hole, 0.5)
+        xs, ys = zip(*(pts + [pts[0]]))
+        ax.plot(xs, ys, color="black", lw=lw)
+    for a, b in half_marks(part) + part.marks:
         ax.plot([a[0], b[0]], [a[1], b[1]], color="tab:blue", lw=0.8)
 
 
@@ -253,7 +261,7 @@ def build_pdf():
     with PdfPages(path) as pdf:
         for p in g.all_parts():
             overview_page(pdf, p)
-        for key in ("leg", "upper", "lower", "hub"):
+        for key in ("leg", "upper", "lower", "hub", "mortise_jig"):
             counts[key] = tiled_pages(pdf, parts[key])
     return path, counts
 

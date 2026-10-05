@@ -43,7 +43,7 @@ def main():
     ok &= abs(ref.area - 2 * half.area) < 20
     # размеры по чертежу
     exp = {"upper": (383.72, 79.27), "lower": (255.0, 94.51), "hub": (140.0, 135.58),
-           "tabletop_half": (1250.0, 1000.0), "subplate_half": (1225.0, 950.0), "leg": (741.26, 114.86)}
+           "tabletop_half": (1250.0, 1000.0), "subplate_half": (1225.0, 950.0), "leg": (741.26, 114.86), "mortise_jig": (100.0, 100.0)}
     for p in g.all_parts():
         b = p.bbox()
         w, h = b[2] - b[0], b[3] - b[1]
